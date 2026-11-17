@@ -26,10 +26,10 @@ python -m pytest
 Run Ruff:
 
 ```bash
-ruff check .
+ruff check trade_lab tests
 ```
 
-The GitHub Actions CI workflow installs the project with development dependencies and runs pytest and Ruff. A local pass does not replace reviewing the workflow result for the exact commit under test.
+The GitHub Actions CI workflow installs the project with development dependencies and runs pytest and Ruff against the maintained package and tests. A local pass does not replace reviewing the workflow result for the exact commit under test.
 
 ## Code organization
 
