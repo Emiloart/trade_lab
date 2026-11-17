@@ -12,7 +12,8 @@ A Python-based market-monitoring and Telegram alerting system for a VWAP pullbac
 - Filtering of in-progress candles and stale market data.
 - Risk-based lot estimates rounded down to the configured lot step.
 - Telegram delivery with credentials supplied through environment variables.
-- Atomic JSON state writes; invalid existing state fails closed rather than resetting alert history.\n- GitHub Actions cache continuity between successful scheduled runs, without creating empty fallback state.
+- Atomic JSON state writes; invalid existing state fails closed rather than resetting alert history.
+- GitHub Actions cache continuity between successful scheduled runs, without creating empty fallback state.
 - Pytest suite and Ruff lint checks in GitHub Actions.
 
 ## Important limitations
@@ -142,7 +143,10 @@ The downloader writes `data/us100_5m.csv`; downloaded data is not committed. **B
 - [Operations](docs/operations.md)
 - [Backtesting](docs/backtesting.md)
 - [Development](docs/development.md)
-- [Roadmap](docs/roadmap.md)\n- [Engineering decisions](docs/decisions.md)\n- [Testing and verification](docs/testing.md)\n- [Troubleshooting and recovery](docs/troubleshooting.md)
+- [Roadmap](docs/roadmap.md)
+- [Engineering decisions](docs/decisions.md)
+- [Testing and verification](docs/testing.md)
+- [Troubleshooting and recovery](docs/troubleshooting.md)
 
 ## Roadmap
 
