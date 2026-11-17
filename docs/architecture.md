@@ -41,7 +41,7 @@ The QQQ-to-NQ conversion is a ratio, not a broker-grade instrument mapping. The 
 
 ## Persistence and consistency
 
-`StateStore` writes a local JSON file using a temporary file followed by an atomic replace. It tracks sent or missed setups and manually entered realized P&L, retaining a limited recent history.
+`StateStore` writes a local JSON file using a temporary file followed by an atomic replace. It tracks sent or missed setups and manually entered realized P&L, retaining a limited recent history. A missing file initializes a new store; an existing unreadable, malformed, structurally invalid, or unsupported-version file raises `StateError` and stops the monitor. The application no longer treats corruption as an empty history.
 
 On GitHub Actions, the workflow restores and saves this file through date-scoped Actions cache keys and serializes scheduled runs. This is a lightweight continuity mechanism, not a transactional database. Cache behavior is not equivalent to a durable event store or a multi-writer lock. A process interruption after Telegram accepts a message but before state is saved can result in a duplicate alert on a later run.
 
