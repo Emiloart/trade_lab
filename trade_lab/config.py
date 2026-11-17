@@ -28,7 +28,6 @@ class StrategyConfig:
     # daylight saving changes.
     session_start: time = time(10, 0)
     session_end: time = time(15, 0)
-    max_trades_per_day: int = 1
 
     # Execution instrument (CFD) sizing. Check these against your broker's
     # contract specification before trusting the lot size in alerts.
@@ -54,8 +53,6 @@ class StrategyConfig:
             raise ValueError("vwap_tolerance cannot be negative")
         if self.session_start >= self.session_end:
             raise ValueError("session_start must be before session_end")
-        if self.max_trades_per_day < 1:
-            raise ValueError("max_trades_per_day must be at least 1")
         if self.point_value_per_lot <= 0 or self.lot_step <= 0 or self.min_lot <= 0:
             raise ValueError("point_value_per_lot, lot_step and min_lot must be positive")
         if self.max_lot < self.min_lot:

@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 
+import numpy as np
 import pandas as pd
 
 from .config import StrategyConfig
 from .indicators import atr, session_vwap
-from .sessions import in_window
+from .sessions import NY, in_window, window_mask
 
 LONG = 1
 SHORT = -1
@@ -72,6 +74,24 @@ def signal_for_bar(
             target=close - risk * cfg.reward_risk,
             risk_distance=risk,
         )
+    return None
+
+
+def first_signal(prepared: pd.DataFrame, cfg: StrategyConfig, day: date) -> Signal | None:
+    """First setup of a New York trading day, scanning in-window bars in order.
+
+    The strategy takes at most one trade per day, so the first qualifying bar
+    defines that day's trade. Live and backtest both use this function, which
+    keeps them identical by construction.
+    """
+    if prepared.empty:
+        return None
+    ny_days = np.asarray(prepared.index.tz_convert(NY).date)
+    mask = (ny_days == day) & window_mask(prepared.index, cfg)
+    for ts, row in prepared.loc[mask].iterrows():
+        sig = signal_for_bar(ts, row, cfg)
+        if sig is not None:
+            return sig
     return None
 
 
