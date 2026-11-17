@@ -45,7 +45,7 @@ There is no broker fill or account-balance integration. The system cannot know a
 - **Execution risk:** spread, commission, slippage, gaps, rejected orders, and partial fills are not modeled by the alert service.
 - **Data risk:** Yahoo Finance availability, timestamps, volume, and intraday history may be delayed, incomplete, or revised.
 - **Duplicate-alert risk:** Telegram delivery may succeed immediately before a process interruption prevents state persistence.
-- **State risk:** JSON plus Actions cache is not transactional or designed for concurrent independent writers.
+- **State risk:** JSON plus Actions cache is not transactional or designed for concurrent independent writers. Existing corrupt or unsupported state now stops the monitor rather than resetting alert history, but the cache still cannot guarantee exactly-once delivery.
 - **Strategy risk:** the historical evidence currently available is too limited to establish robustness or profitability.
 
 Validate sizing against the exact broker symbol specification and use a non-live environment until independent testing and operational controls are complete.
