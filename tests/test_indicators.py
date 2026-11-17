@@ -46,6 +46,15 @@ def test_true_range_uses_previous_close_within_session():
     assert tr.iloc[1] == pytest.approx(3.5)  # |13 - 9.5|
 
 
+def test_atr_rolling_window_can_include_prior_day_true_ranges():
+    day1 = make_bars("2026-11-17 19:50", [(20, 10, 15, 100)])
+    day2 = make_bars("2026-11-18 15:00", [(102, 100, 101, 100)])
+    result = atr(pd.concat([day1, day2]), period=2)
+    # Day two true range ignores the overnight gap (2), but ATR averages
+    # it with the previous day's true range (10).
+    assert result.iloc[1] == pytest.approx(6.0)
+
+
 def test_atr_needs_full_period_then_is_exact():
     df = make_bars("2026-11-18 15:00", [(101, 99, 100, 100)] * 5)
     result = atr(df, period=3)
