@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import logging
 import os
 import tempfile
@@ -16,6 +17,10 @@ log = logging.getLogger("trade_lab.state")
 
 SCHEMA_VERSION = 1
 KEEP_DAYS = 14
+
+
+class StateError(RuntimeError):
+    """Raised when persisted state exists but cannot be trusted."""
 
 
 class StateStore:
@@ -35,12 +40,30 @@ class StateStore:
             return {"version": SCHEMA_VERSION, "days": {}}
         try:
             data = json.loads(self.path.read_text(encoding="utf-8"))
-            if not isinstance(data, dict) or not isinstance(data.get("days"), dict):
-                raise ValueError("unexpected structure")
-            return data
-        except (ValueError, OSError) as exc:
-            log.warning("State file unreadable (%s); starting with empty state", exc)
-            return {"version": SCHEMA_VERSION, "days": {}}
+        except (json.JSONDecodeError, OSError) as exc:
+            raise StateError(
+                f"State file exists but cannot be read: {self.path}. "
+                "Preserve a copy and repair or restore it before resuming."
+            ) from exc
+
+        if not isinstance(data, dict):
+            raise StateError(f"Invalid state structure in {self.path}: expected an object")
+        if data.get("version") != SCHEMA_VERSION:
+            raise StateError(
+                f"Unsupported state schema in {self.path}: "
+                f"expected version {SCHEMA_VERSION}, got {data.get('version')!r}"
+            )
+        days = data.get("days")
+        if not isinstance(days, dict):
+            raise StateError(f"Invalid state structure in {self.path}: 'days' must be an object")
+        for day, record in days.items():
+            try:
+                date.fromisoformat(day)
+            except (TypeError, ValueError) as exc:
+                raise StateError(f"Invalid date key in state file {self.path}: {day!r}") from exc
+            if not isinstance(record, dict) or not isinstance(record.get("entries", []), list):
+                raise StateError(f"Invalid day record in state file {self.path}: {day}")
+        return data
 
     def _save(self, data: dict[str, Any]) -> None:
         if data["days"]:
@@ -101,6 +124,9 @@ class StateStore:
     def record_pnl(self, day: str, pnl: float) -> None:
         """Add realized P&L (negative for a loss) for the day."""
         data = self._load()
+        value = float(pnl)
+        if not math.isfinite(value):
+            raise ValueError("realized P&L must be finite")
         record = self._day(data, day)
-        record["realized_pnl"] = round(float(record["realized_pnl"]) + pnl, 2)
+        record["realized_pnl"] = round(float(record["realized_pnl"]) + value, 2)
         self._save(data)
