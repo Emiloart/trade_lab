@@ -21,11 +21,11 @@ Tests use synthetic bars and fakes. They validate deterministic code behavior; t
 
 Install development dependencies:
 
-\`\`\`bash
+```bash
 python -m pip install -e ".[dev]"
 python -m pytest -q
 ruff check trade_lab tests
-\`\`\`
+```
 
 The CI workflow runs the same pytest and Ruff checks on pushes to main and refactor branches, pull requests, and manual dispatches.
 
