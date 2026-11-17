@@ -120,6 +120,12 @@ def test_state_missing_file_is_a_new_empty_store(tmp_path):
     assert not store.day_closed("2026-11-18")
 
 
+def test_state_rejects_non_finite_realized_pnl(tmp_path):
+    store = StateStore(tmp_path / "state.json")
+    with pytest.raises(ValueError, match="finite"):
+        store.record_pnl("2026-11-18", float("nan"))
+
+
 def test_state_prunes_old_days_relative_to_newest(tmp_path):
     store = StateStore(tmp_path / "state.json")
     store.record_missed("2026-10-01", "x", SIG)
