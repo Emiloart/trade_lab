@@ -1,4 +1,3 @@
-import json
 import urllib.error
 import urllib.request
 
@@ -8,7 +7,7 @@ from conftest import make_bars
 
 from trade_lab.data import DataError, conversion_factor, normalize_bars
 from trade_lab.notify import NotifyError, send_telegram
-from trade_lab.state import StateStore
+from trade_lab.state import StateError, StateStore
 from trade_lab.strategy import Signal
 
 # ---- data ---------------------------------------------------------------
@@ -107,13 +106,18 @@ def test_state_pnl_accumulates(tmp_path):
     assert store.realized_pnl("2026-11-18") == pytest.approx(-150.5)
 
 
-def test_state_recovers_from_corrupt_file(tmp_path):
+@pytest.mark.parametrize("payload", ["{not json", '{"version": 99, "days": {}}', '{"version": 1, "days": []}'])
+def test_state_fails_closed_on_corrupt_or_unsupported_file(tmp_path, payload):
     path = tmp_path / "state.json"
-    path.write_text("{not json", encoding="utf-8")
+    path.write_text(payload, encoding="utf-8")
     store = StateStore(path)
+    with pytest.raises(StateError):
+        store.day_closed("2026-11-18")
+
+
+def test_state_missing_file_is_a_new_empty_store(tmp_path):
+    store = StateStore(tmp_path / "missing.json")
     assert not store.day_closed("2026-11-18")
-    store.record_missed("2026-11-18", "x", SIG)
-    assert json.loads(path.read_text())["days"]["2026-11-18"]["entries"]
 
 
 def test_state_prunes_old_days_relative_to_newest(tmp_path):
