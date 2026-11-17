@@ -18,7 +18,7 @@ For each New York calendar date, the implementation computes cumulative typical-
 
 `VWAP = cumulative(Typical Price × Volume) / cumulative(Volume)`
 
-The calculation resets by New York calendar date. A zero cumulative volume produces an undefined VWAP rather than an invented price.
+The calculation resets by New York calendar date and accumulates from the first bar returned for that date. It does not explicitly enforce a 09:30 New York cash-session reset; the current Yahoo Finance request uses the provider's default regular-session behavior. A zero cumulative volume produces an undefined VWAP rather than an invented price.
 
 ### ATR
 
