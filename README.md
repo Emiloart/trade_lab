@@ -7,12 +7,12 @@ A Python-based market-monitoring and Telegram alerting system for a VWAP pullbac
 ## Current capabilities
 
 - New York timezone-aware session handling, including daylight-saving changes.
-- Session VWAP and gap-aware ATR calculations.
+- Session VWAP, New York-date gap-excluding true range, and a rolling ATR (which can include prior-date bars).
 - Long/short pullback signal rules with one first setup per New York trading day.
 - Filtering of in-progress candles and stale market data.
 - Risk-based lot estimates rounded down to the configured lot step.
 - Telegram delivery with credentials supplied through environment variables.
-- Atomic JSON state writes and GitHub Actions cache continuity between scheduled runs.
+- Atomic JSON state writes; invalid existing state fails closed rather than resetting alert history.\n- GitHub Actions cache continuity between successful scheduled runs, without creating empty fallback state.
 - Pytest suite and Ruff lint checks in GitHub Actions.
 
 ## Important limitations
@@ -20,7 +20,7 @@ A Python-based market-monitoring and Telegram alerting system for a VWAP pullbac
 - QQQ is the signal source; NQ futures are used to scale reference levels. This is an approximation, not a validated mapping to every broker's US100/NAS100 CFD.
 - Contract value, lot size, and account currency assumptions must be verified against the actual broker.
 - The daily loss gate depends on manually recorded realized P&L. There is no broker/account integration.
-- JSON state plus GitHub Actions cache is not a transactional database. A crash after Telegram accepts an alert but before state is saved can permit a duplicate alert.
+- JSON state plus GitHub Actions cache is not a transactional database. A crash after Telegram accepts an alert but before state is saved can permit a duplicate alert. Corrupt or unsupported state stops the monitor rather than silently resetting history.
 - Historical scripts under `backtests/` have not yet been migrated to the shared strategy package. Their results are not guaranteed to match live behavior.
 - The small historical sample previously shown in this repository is not evidence of strategy robustness or profitability.
 
@@ -117,7 +117,7 @@ Amounts accumulate against the current New York trading date.
 
 ```bash
 python -m pytest
-ruff check .
+ruff check trade_lab tests
 ```
 
 ## Backtesting
@@ -142,7 +142,7 @@ The downloader writes `data/us100_5m.csv`; downloaded data is not committed. **B
 - [Operations](docs/operations.md)
 - [Backtesting](docs/backtesting.md)
 - [Development](docs/development.md)
-- [Roadmap](docs/roadmap.md)
+- [Roadmap](docs/roadmap.md)\n- [Engineering decisions](docs/decisions.md)\n- [Testing and verification](docs/testing.md)\n- [Troubleshooting and recovery](docs/troubleshooting.md)
 
 ## Roadmap
 
