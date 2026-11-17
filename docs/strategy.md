@@ -22,7 +22,7 @@ The calculation resets by New York calendar date and accumulates from the first 
 
 ### ATR
 
-True range is the maximum of high-low, absolute high minus previous close, and absolute low minus previous close. The previous close is grouped by New York date, so the first bar of a new date uses high-low only. ATR is a simple rolling mean with a default period of 14 bars.
+True range is the maximum of high-low, absolute high minus previous close, and absolute low minus previous close. The previous close is grouped by New York calendar date, so the first bar of a new date uses high-low only. ATR is a simple rolling mean over the resulting true-range series with a default period of 14 bars. The rolling ATR window is not grouped or reset by date; it can include true-range observations from the prior date.
 
 ## Entry signal
 
