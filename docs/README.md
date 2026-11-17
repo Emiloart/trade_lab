@@ -13,6 +13,9 @@ This documentation describes the current implementation on `refactor/core-engine
 - [Backtesting](backtesting.md) — current scripts, data requirements, and evidence limitations.
 - [Development](development.md) — setup, tests, linting, and contribution workflow.
 - [Roadmap](roadmap.md) — ordered engineering priorities.
+- [Engineering decisions](decisions.md) — recorded implementation decisions and constraints.
+- [Testing and verification](testing.md) — automated coverage, local checks, and validation requirements.
+- [Troubleshooting and recovery](troubleshooting.md) — safe operational recovery procedures.
 
 ## Scope and safety
 
