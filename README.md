@@ -1,98 +1,153 @@
-# 📈 Algorithmic Trading Bot (VWAP Pullback Strategy)
+# Trade Lab
 
-![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python)
-![CI/CD](https://img.shields.io/badge/Serverless-GitHub_Actions-black?logo=githubactions)
-![Alerts](https://img.shields.io/badge/Alerts-Telegram-blue?logo=telegram)
-![License](https://img.shields.io/badge/License-MIT-yellow)
+A Python-based market-monitoring and Telegram alerting system for a VWAP pullback strategy. The live monitor evaluates completed 5-minute QQQ bars during a New York session window, derives reference levels using a timestamp-aligned QQQ/NQ price ratio, estimates CFD position size from configured risk assumptions, and can send a Telegram alert.
 
-A cloud-native, fault-tolerant algorithmic trading system built with Python. This bot monitors the Nasdaq 100 (US100) for VWAP pullback setups during the New York session, calculates dynamic position sizing, and sends real-time execution alerts via Telegram. It runs entirely **serverless on GitHub Actions** — no VPS, no always-on machine.
+**Trade Lab is an alerting system, not an automated trading system.** It does not place orders, observe broker fills, or reconcile account positions.
 
-> **⚠️ Disclaimer:** This project is for **educational and portfolio purposes only**. It is not financial advice. Algorithmic trading carries significant risk. The author is not responsible for any financial losses.
+## Current capabilities
 
----
+- New York timezone-aware session handling, including daylight-saving changes.
+- Session VWAP and gap-aware ATR calculations.
+- Long/short pullback signal rules with one first setup per New York trading day.
+- Filtering of in-progress candles and stale market data.
+- Risk-based lot estimates rounded down to the configured lot step.
+- Telegram delivery with credentials supplied through environment variables.
+- Atomic JSON state writes and GitHub Actions cache continuity between scheduled runs.
+- Pytest suite and Ruff lint checks in GitHub Actions.
 
-## 🚀 Features
+## Important limitations
 
-- **Dynamic Risk Management:** Automatically calculates position size from a configurable account size and risk percentage (1% risk, 1.3R reward), with a hard daily kill-switch.
-- **Fault-Tolerant Data Fetching:** Primary source is Yahoo Finance (`yfinance`), with defensive handling of empty responses and MultiIndex columns.
-- **Persistent Trade State:** Uses a JSON state file so the bot never sends duplicate alerts on the same day, even across serverless restarts. *(Architecture is designed to be upgraded to a PostgreSQL/Supabase backend — see Roadmap.)*
-- **Serverless Scheduling:** Runs on a GitHub Actions cron (`*/5 13-19 * * 1-5`) during NY market hours. Zero infrastructure cost.
+- QQQ is the signal source; NQ futures are used to scale reference levels. This is an approximation, not a validated mapping to every broker's US100/NAS100 CFD.
+- Contract value, lot size, and account currency assumptions must be verified against the actual broker.
+- The daily loss gate depends on manually recorded realized P&L. There is no broker/account integration.
+- JSON state plus GitHub Actions cache is not a transactional database. A crash after Telegram accepts an alert but before state is saved can permit a duplicate alert.
+- Historical scripts under `backtests/` have not yet been migrated to the shared strategy package. Their results are not guaranteed to match live behavior.
+- The small historical sample previously shown in this repository is not evidence of strategy robustness or profitability.
 
----
+## Quick start
 
-## 📊 Backtesting Results
+Requires Python 3.10 or newer.
 
-**Parameters:** $10,000 account | 1% risk/trade ($100) | 1.3R target ($130) | Max 1 trade/day.
-
-| Metric | Result |
-| :--- | :--- |
-| Total Trades | 6 |
-| Win Rate | 50.00% |
-| Profit Factor | 1.30 |
-| Average Win | +$130.00 |
-| Average Loss | -$100.00 |
-| Max Drawdown | -$100.00 (1%) |
-| Net PnL | +$90.00 |
-
-*The system cut every loss at exactly 1% and let every winner run to exactly 1.3R — proving the risk logic is bulletproof.*
-
----
-
-## 📸 Live Execution
-
-A screenshot of the bot firing a real alert (sensitive account details):
-![Live Bot Execution](./assets/tg_ping1.jpg)
-![Live Bot Execution](./assets/mt5_history.jpg)
-
----
-
-## 🛠️ Tech Stack
-
-- **Language:** Python 3.10+
-- **Data:** `yfinance`, `pandas`, `numpy`
-- **State:** JSON file persistence
-- **Scheduling:** GitHub Actions (cron)
-- **Alerts:** Telegram Bot API
-
----
-
-## ⚙️ How to Run It Yourself
-
-### 1. Clone & Install
 ```bash
-git clone https://github.com/prosperlpx/trade_lab.git
+git clone https://github.com/Emiloart/trade_lab.git
 cd trade_lab
-pip install -r requirements.txt
+python -m venv .venv
+```
 
+Activate the environment:
 
-## Configure Telegram (The Only Required Secrets)
+```bash
+# macOS / Linux
+source .venv/bin/activate
 
-Create a bot via @BotFather on Telegram, get your BOT_TOKEN, and find your CHAT_ID. Then set them in your environment: BOT_TOKEN=your_telegram_bot_token CHAT_ID=your_telegram_chat_id
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+```
 
-(Note: In production, these should be stored securely in your GitHub Repository Secrets. Locally, you can export them or use a .env file.) ## Run the Backtest Test the strategy against historical data to see the risk management logic in action: python backtest/recent_backtest.py
+Install the package and development tools:
 
-## Run the Live Monitor
+```bash
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+```
 
-Trigger the bot manually to check for current market setups (or let the GitHub Actions cron job handle it automatically on a schedule): python strategies/live_monitor.py
+## Configuration
 
-🗺️ Roadmap & Future Improvements This is a V1 system designed with scalability in mind. The project is actively open to contributions in the following areas:
+The live monitor uses these environment variables:
 
-    PostgreSQL / Supabase Backend: Replace the local **JSON** state file with a cloud database for true multi-instance safety and persistent trade history. (**SQL** schema and client modules are already drafted).
-    Secondary Data Fallback **API**: Integrate a secondary provider (e.g., Alpha Vantage or Twelve Data) for redundancy if Yahoo Finance rate-limits or fails.
-    Automated Execution: Integrate directly with the MetaTrader 5 (**MT5**) Python **API** to place trades automatically, removing the need for manual Telegram execution.
-    Web Dashboard: Build a React/Next.js frontend connected to the database to visualize live PnL, drawdown curves, and trade history in real-time.
+| Variable | Default | Description |
+| --- | ---: | --- |
+| `ACCOUNT_SIZE` | `10000` | Nominal account value used for sizing |
+| `RISK_PERCENTAGE` | `0.01` | Risk budget per setup |
+| `MAX_DAILY_LOSS_PERCENTAGE` | `0.02` | Daily realized-loss threshold |
+| `REWARD_RISK` | `1.3` | Target multiple of stop distance |
+| `ATR_STOP_MULT` | `1.5` | ATR stop multiplier |
+| `POINT_VALUE_PER_LOT` | `10` | Assumed value per point per lot |
+| `MIN_LOT` | `0.01` | Minimum lot |
+| `LOT_STEP` | `0.01` | Lot increment |
+| `BOT_TOKEN` | — | Telegram bot token |
+| `CHAT_ID` | — | Telegram destination chat ID |
+| `STATE_FILE` | `.state/state.json` | Optional state-file override |
 
-🤝 Contributing
+Set Telegram credentials in your shell or repository Actions secrets. Never commit credentials or state files.
 
-This project is open for contributions! 🎉 Whether you are a beginner looking to learn or an experienced developer, your input is welcome.
+PowerShell example:
 
-    🐛 Found a bug? Open an issue with steps to reproduce.
-    🔌 Want to wire up the Supabase module? Submit a Pull Request.
-    💡 Have a better data fallback or risk management idea? Let's discuss it in the Discussions tab.
+```powershell
+$env:BOT_TOKEN = "your_bot_token"
+$env:CHAT_ID = "your_chat_id"
+```
 
-Please ensure all contributions are **PEP8**-compliant and include clear comments explaining the logic.
+See [Configuration](docs/configuration.md) for all supported settings and validation details.
 
-👨‍💻 About the Author Built by Prosper Chinedu — a Software Engineer focused on building fault-tolerant, cloud-native, and serverless systems. 📩 I am currently open to Python, Backend, Linux Sys Admin, and Automation roles. Let's connect and build something great:
+## Run the monitor
 
-    GitHub: github.com/prosperlpx
-    Email: [techprincemr@gmail.com](mailto:techprincemr@gmail.com)
+Run a dry evaluation without sending a Telegram message or writing an alert record:
+
+```bash
+python -m trade_lab.live --dry-run
+```
+
+Use an explicit timestamp for a reproducible check:
+
+```bash
+python -m trade_lab.live --dry-run --now "2026-11-18T16:17:00Z"
+```
+
+A live run requires both Telegram variables:
+
+```bash
+python -m trade_lab.live
+```
+
+The GitHub Actions workflow sends alerts on scheduled events. Manual workflow dispatch runs in dry-run mode. Configure `BOT_TOKEN` and `CHAT_ID` as repository Actions secrets before enabling scheduled delivery.
+
+### Record realized P&L
+
+The daily loss gate uses manually entered realized P&L; it does not read broker results:
+
+```bash
+python -m trade_lab.live --record-pnl -100
+python -m trade_lab.live --record-pnl 45.50
+```
+
+Amounts accumulate against the current New York trading date.
+
+## Tests and lint
+
+```bash
+python -m pytest
+ruff check .
+```
+
+## Backtesting
+
+The repository contains standalone historical scripts and a Yahoo Finance downloader. Generate the local input data first:
+
+```bash
+python strategies/data_downloader.py
+python backtests/recent_backtest.py
+```
+
+The downloader writes `data/us100_5m.csv`; downloaded data is not committed. **Backtest/live parity is not yet complete.** Review [Backtesting](docs/backtesting.md) before interpreting any result.
+
+## Documentation
+
+- [Documentation index](docs/README.md)
+- [Architecture](docs/architecture.md)
+- [Strategy specification](docs/strategy.md)
+- [Risk management](docs/risk-management.md)
+- [Data sources and instrument mapping](docs/data-sources.md)
+- [Configuration](docs/configuration.md)
+- [Operations](docs/operations.md)
+- [Backtesting](docs/backtesting.md)
+- [Development](docs/development.md)
+- [Roadmap](docs/roadmap.md)
+
+## Roadmap
+
+The next major engineering priority is to migrate historical simulation onto the shared strategy implementation and establish reproducible, realistic backtesting. A durable event journal/database should follow before building a web research and monitoring interface. Automated broker execution is explicitly outside the initial scope.
+
+## Attribution
+
+Maintained by **Emiloart**.
