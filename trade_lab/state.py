@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import math
-import logging
 import os
 import tempfile
 from datetime import date, timedelta
@@ -12,8 +11,6 @@ from pathlib import Path
 from typing import Any
 
 from .strategy import Signal
-
-log = logging.getLogger("trade_lab.state")
 
 SCHEMA_VERSION = 1
 KEEP_DAYS = 14
