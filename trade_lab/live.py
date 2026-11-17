@@ -23,7 +23,7 @@ from .data import DataError, conversion_factor, fetch_bars
 from .notify import NotifyError, send_telegram
 from .sessions import drop_open_bar, in_window, is_fresh, ny_date
 from .sizing import daily_loss_exceeded, lots_for_risk, scale_price
-from .state import StateStore
+from .state import StateError, StateStore
 from .strategy import Signal, first_signal, prepare
 
 log = logging.getLogger("trade_lab.live")
@@ -156,7 +156,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.record_pnl is not None:
         day = ny_date(now).isoformat()
-        store.record_pnl(day, args.record_pnl)
+        try:
+            store.record_pnl(day, args.record_pnl)
+        except (StateError, ValueError) as exc:
+            log.error("State update refused: %s", exc)
+            return 2
         log.info("Recorded P&L %.2f for %s", args.record_pnl, day)
         return 0
 
@@ -166,14 +170,18 @@ def main(argv: list[str] | None = None) -> int:
         log.error("BOT_TOKEN and CHAT_ID must be set (or use --dry-run)")
         return 2
 
-    result = run_once(
-        now,
-        cfg,
-        store,
-        fetch_bars,
-        lambda text: send_telegram(token, chat_id, text),
-        dry_run=args.dry_run,
-    )
+    try:
+        result = run_once(
+            now,
+            cfg,
+            store,
+            fetch_bars,
+            lambda text: send_telegram(token, chat_id, text),
+            dry_run=args.dry_run,
+        )
+    except StateError as exc:
+        log.error("State validation failed; refusing to continue: %s", exc)
+        return 2
     log.info("status=%s %s", result.status, result.detail)
     if args.dry_run and result.message:
         print(result.message)
