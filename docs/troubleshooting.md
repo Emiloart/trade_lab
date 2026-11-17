@@ -1,0 +1,75 @@
+# Troubleshooting and recovery
+
+## Stop conditions
+
+Disable scheduled alerting before investigating any condition that could invalidate the system's memory or price inputs:
+
+- State file is unreadable, malformed, or has an unsupported schema.
+- State appears unexpectedly missing or has rolled back.
+- QQQ/NQ timestamps or converted levels are inconsistent.
+- Telegram delivery status is uncertain.
+- Workflow cache restoration or persistence appears to have failed.
+
+Do not solve these conditions by deleting state and immediately resuming. An empty state can make an already-alerted day appear eligible again.
+
+## State validation failure
+
+The monitor distinguishes a missing file from an existing invalid file.
+
+- **Missing file:** treated as a first-run empty store.
+- **Malformed JSON, invalid structure, unreadable file, or unsupported version:** raises StateError; the CLI exits non-zero and refuses to continue.
+
+Recovery procedure:
+
+1. Disable the scheduled workflow (or temporarily remove its schedule trigger) while preserving the repository and Actions history.
+2. Download or copy the affected state artifact/file before making changes.
+3. Inspect the JSON and compare it with the last known-good Actions cache/run and Telegram message history.
+4. Restore the most recent known-good state, or repair the JSON without removing valid day entries or realized P&L.
+5. Validate that the file is JSON with schema version 1 and a days object. Keep a backup of the original.
+6. Run tests and a local dry run against a copy of the restored state.
+7. Re-enable scheduled delivery only after verifying the recovered alert history and the next scheduled run.
+
+If it is impossible to determine whether an alert was delivered, reconcile Telegram history manually before resuming. The system cannot prove exactly-once delivery.
+
+## Actions cache appears missing or stale
+
+The workflow uses a date-scoped cache restore prefix. Cache entries are immutable; each run writes a unique key. The workflow now saves only after a successful scheduled run and only if the application has created a state file. It does not create a blank state file as a fallback.
+
+If state continuity is uncertain:
+
+1. Disable scheduled alerting.
+2. Inspect the relevant workflow runs and their logs for restore and save outcomes.
+3. Compare the restored state with Telegram history for the same New York date.
+4. Restore or reconstruct the state before resuming.
+
+A cache miss is not proof that no alert was sent. Cache retention and availability are not a durable ledger.
+
+## Telegram failures or uncertain delivery
+
+- **send_failed** means the application received a delivery error and did not record the setup; a later run may retry while the signal remains fresh.
+- A timeout or connection interruption can leave delivery uncertain even if Telegram accepted the message.
+- Check the destination chat before retrying or manually editing state.
+- If a token is exposed, revoke it with BotFather and replace the BOT_TOKEN secret. Review repository history and workflow logs.
+
+## Stale or inconsistent market data
+
+1. Stop scheduled delivery.
+2. Inspect the raw QQQ and NQ bars around the signal timestamp.
+3. Confirm timestamps are timezone-aware and normalized to UTC.
+4. Confirm the selected conversion uses the newest exact shared timestamp.
+5. Check for missing, zero, or implausible closes and for a provider outage or rate limit.
+6. Resume only after the source data and reference conversion are credible.
+
+Yahoo Finance is not an execution feed. A valid API response does not guarantee a tradable broker quote.
+
+## Unexpected signal
+
+Check the exact inequalities in the strategy specification. In particular, the VWAP pullback tests are one-sided: they do not cap how far the candle can cross VWAP. Do not assume a signal represents a narrow touch-and-rejection pattern.
+
+Also inspect the first qualifying bar of the New York date. The monitor intentionally does not skip an old first setup in favor of a later one.
+
+## Workflow controls
+
+To pause scheduled alerts, disable the US100 VWAP Trading Bot workflow in the repository's Actions interface or remove its schedule trigger in a reviewed change. A manual dispatch currently runs with dry-run mode; it is not a live-delivery test.
+
+A workflow on a feature branch does not by itself establish that the default-branch schedule is active. GitHub scheduled workflows are driven from the repository's default branch. Confirm the default branch and its workflow file before assuming production scheduling is enabled.
