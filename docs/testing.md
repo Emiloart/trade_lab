@@ -24,7 +24,7 @@ Install development dependencies:
 \`\`\`bash
 python -m pip install -e ".[dev]"
 python -m pytest -q
-ruff check .
+ruff check trade_lab tests
 \`\`\`
 
 The CI workflow runs the same pytest and Ruff checks on pushes to main and refactor branches, pull requests, and manual dispatches.
