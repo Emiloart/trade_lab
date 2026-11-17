@@ -62,16 +62,11 @@ jobs:
             python -m trade_lab.live --dry-run
           fi
 
-      - name: Ensure a state file exists
-        if: always()
-        run: |
-          mkdir -p .state
-          if [ ! -f .state/state.json ]; then
-            printf '{"version":1,"days":{}}\n' > .state/state.json
-          fi
-
+      # Never manufacture an empty state file or save after a failed run.
+      # A successful scheduled invocation may persist state only if the
+      # application actually produced/updated a valid state file.
       - name: Save state for subsequent scheduled runs
-        if: always()
+        if: success() && github.event_name == 'schedule' && hashFiles('.state/state.json') != ''
         uses: actions/cache/save@v4
         with:
           path: .state/state.json
