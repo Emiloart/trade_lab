@@ -106,7 +106,10 @@ def test_state_pnl_accumulates(tmp_path):
     assert store.realized_pnl("2026-11-18") == pytest.approx(-150.5)
 
 
-@pytest.mark.parametrize("payload", ["{not json", '{"version": 99, "days": {}}', '{"version": 1, "days": []}'])
+@pytest.mark.parametrize(
+    "payload",
+    ["{not json", '{"version": 99, "days": {}}', '{"version": 1, "days": []}'],
+)
 def test_state_fails_closed_on_corrupt_or_unsupported_file(tmp_path, payload):
     path = tmp_path / "state.json"
     path.write_text(payload, encoding="utf-8")
