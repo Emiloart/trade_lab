@@ -58,8 +58,17 @@ class StateStore:
                 date.fromisoformat(day)
             except (TypeError, ValueError) as exc:
                 raise StateError(f"Invalid date key in state file {self.path}: {day!r}") from exc
-            if not isinstance(record, dict) or not isinstance(record.get("entries", []), list):
+            if not isinstance(record, dict):
                 raise StateError(f"Invalid day record in state file {self.path}: {day}")
+            entries = record.get("entries", [])
+            if not isinstance(entries, list) or any(not isinstance(item, dict) for item in entries):
+                raise StateError(f"Invalid entries in state file {self.path}: {day}")
+            try:
+                pnl = float(record.get("realized_pnl", 0.0))
+            except (TypeError, ValueError) as exc:
+                raise StateError(f"Invalid realized P&L in state file {self.path}: {day}") from exc
+            if not math.isfinite(pnl):
+                raise StateError(f"Non-finite realized P&L in state file {self.path}: {day}")
         return data
 
     def _save(self, data: dict[str, Any]) -> None:
@@ -125,5 +134,8 @@ class StateStore:
         if not math.isfinite(value):
             raise ValueError("realized P&L must be finite")
         record = self._day(data, day)
-        record["realized_pnl"] = round(float(record["realized_pnl"]) + value, 2)
+        total = float(record["realized_pnl"]) + value
+        if not math.isfinite(total):
+            raise ValueError("accumulated realized P&L must be finite")
+        record["realized_pnl"] = round(total, 2)
         self._save(data)
