@@ -28,7 +28,7 @@ python -m pip install -e ".[dev]"
 | `CHAT_ID` | — | Telegram destination chat ID |
 | `STATE_FILE` | `.state/state.json` | JSON state-file path |
 
-The configuration validates positive account size, risk percentages, stop/reward values, session order, and lot constraints. Invalid numeric environment values fail startup with a clear error. Session times, ATR period, tolerance, and maximum lot currently use code defaults unless the Python configuration is constructed directly.
+All floating-point strategy and sizing parameters must be finite; NaN and positive/negative infinity are rejected both for direct construction and supported numeric environment overrides. The configuration also validates positive account size, risk percentages, stop/reward values, session order, integer ATR period, and lot constraints. Invalid values fail startup with a clear error. Session times, ATR period, tolerance, and maximum lot currently use code defaults unless the Python configuration is constructed directly.
 
 ## Local environment example
 
