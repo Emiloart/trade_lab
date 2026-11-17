@@ -32,6 +32,14 @@ def test_short_signal_levels():
     assert sig.side == "SHORT"
 
 
+def test_pullback_rule_is_one_sided_and_allows_price_to_cross_vwap():
+    # The implemented inequalities do not cap how far the candle can cross VWAP.
+    long_sig = signal_for_bar(TS, bar(100.5, 90.0, 101.0, 100.0, 0.4), CFG)
+    short_sig = signal_for_bar(TS, bar(99.5, 99.0, 110.0, 100.0, 0.4), CFG)
+    assert long_sig is not None and long_sig.direction == LONG
+    assert short_sig is not None and short_sig.direction == SHORT
+
+
 def test_no_signal_when_bar_never_touched_vwap():
     assert signal_for_bar(TS, bar(101.0, 100.5, 101.2, 100.0, 0.4), CFG) is None
     assert signal_for_bar(TS, bar(99.0, 98.8, 99.5, 100.0, 0.4), CFG) is None
