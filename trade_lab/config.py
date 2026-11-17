@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -37,6 +38,27 @@ class StrategyConfig:
     max_lot: float = 100.0
 
     def __post_init__(self) -> None:
+        numeric_fields = {
+            "account_size": self.account_size,
+            "risk_pct": self.risk_pct,
+            "max_daily_loss_pct": self.max_daily_loss_pct,
+            "atr_stop_mult": self.atr_stop_mult,
+            "reward_risk": self.reward_risk,
+            "vwap_tolerance": self.vwap_tolerance,
+            "point_value_per_lot": self.point_value_per_lot,
+            "min_lot": self.min_lot,
+            "lot_step": self.lot_step,
+            "max_lot": self.max_lot,
+        }
+        for name, value in numeric_fields.items():
+            try:
+                finite = math.isfinite(value)
+            except TypeError as exc:
+                raise ValueError(f"{name} must be a finite number") from exc
+            if not finite:
+                raise ValueError(f"{name} must be a finite number")
+        if isinstance(self.atr_period, bool) or not isinstance(self.atr_period, int):
+            raise ValueError("atr_period must be an integer")
         if self.account_size <= 0:
             raise ValueError("account_size must be positive")
         if not 0 < self.risk_pct < 1:
@@ -96,4 +118,6 @@ class StrategyConfig:
                 overrides[field] = float(raw)
             except ValueError as exc:
                 raise ValueError(f"{var} must be a number, got {raw!r}") from exc
+            if not math.isfinite(overrides[field]):
+                raise ValueError(f"{var} must be a finite number, got {raw!r}")
         return cls(**overrides)
