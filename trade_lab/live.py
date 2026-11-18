@@ -220,7 +220,7 @@ def main(argv: list[str] | None = None) -> int:
     log.info("status=%s %s", result.status, result.detail)
     if args.dry_run and result.message:
         print(result.message)
-    return 1 if result.status == "send_failed" else 0
+    return 1 if result.status == "send_failed" and not args.deliver_pending else 0
 
 
 if __name__ == "__main__":
