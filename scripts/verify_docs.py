@@ -27,34 +27,43 @@ def verify_local_links(doc_path: Path, text: str) -> None:
             fail(f"broken local link in {doc_path.relative_to(ROOT)}: {target}")
 
 
-def verify_commands(text: str, source: str) -> None:
-    for block in re.findall(r"```[^\n]*\n(.*?)```", text, flags=re.DOTALL):
-        for raw_line in block.splitlines():
-            line = raw_line.strip()
-            if not line or line.startswith("#"):
-                continue
-            match = re.match(r"^(?:python|python3|py)\s+(?:(-m)\s+)?([^\s]+)", line)
-            if match:
-                is_module, target = match.groups()
-                if is_module:
-                    if target in {"pip", "venv", "pytest"}:
-                        continue
-                    module_path = ROOT / (target.replace(".", "/") + ".py")
-                    package_path = ROOT / target.replace(".", "/") / "__main__.py"
-                    if not module_path.exists() and not package_path.exists():
-                        fail(f"unknown Python module in {source}: {target}")
-                else:
-                    script_path = ROOT / target.replace("\\", "/")
-                    if not script_path.is_file():
-                        fail(f"unknown Python script in {source}: {target}")
+def verify_command_line(raw_line: str, source: str) -> None:
+    line = raw_line.strip()
+    if line.startswith("- run:"):
+        line = line[len("- run:") :].strip()
+    elif line.startswith("run:"):
+        line = line[len("run:") :].strip()
+    if not line or line.startswith("#") or line == "|":
+        return
 
-            ruff = re.match(r"^ruff\s+check\s+(.+)$", line)
-            if ruff:
-                for target in ruff.group(1).split():
-                    if target.startswith("-"):
-                        continue
-                    if not (ROOT / target).exists():
-                        fail(f"unknown Ruff target in {source}: {target}")
+    match = re.match(r"^(?:python|python3|py)\\s+(?:(-m)\\s+)?([^\\s]+)", line)
+    if match:
+        is_module, target = match.groups()
+        if is_module:
+            if target in {"pip", "venv", "pytest"}:
+                return
+            module_path = ROOT / (target.replace(".", "/") + ".py")
+            package_path = ROOT / target.replace(".", "/") / "__main__.py"
+            if not module_path.exists() and not package_path.exists():
+                fail(f"unknown Python module in {source}: {target}")
+        else:
+            script_path = ROOT / target.replace("\\\\", "/")
+            if not script_path.is_file():
+                fail(f"unknown Python script in {source}: {target}")
+
+    ruff = re.match(r"^ruff\\s+check\\s+(.+)$", line)
+    if ruff:
+        for target in ruff.group(1).split():
+            if target.startswith("-"):
+                continue
+            if not (ROOT / target).exists():
+                fail(f"unknown Ruff target in {source}: {target}")
+
+
+def verify_commands(text: str, source: str) -> None:
+    for block in re.findall(r"```[^\\n]*\\n(.*?)```", text, flags=re.DOTALL):
+        for raw_line in block.splitlines():
+            verify_command_line(raw_line, source)
 
 
 def cli_options(module: Path) -> set[str]:
@@ -123,7 +132,9 @@ def main() -> int:
         missing = (workflow_vars | workflow_secrets) - set(re.findall(r"\b[A-Z][A-Z0-9_]*\b", combined))
         if missing:
             fail(f"undocumented workflow variables in {workflow.name}: {sorted(missing)}")
-        verify_commands(workflow_text, workflow.relative_to(ROOT).as_posix())
+        workflow_source = workflow.relative_to(ROOT).as_posix()
+        for workflow_line in workflow_text.splitlines():
+            verify_command_line(workflow_line, workflow_source)
 
     # Every argparse option is listed in the relevant operator reference.
     live_options = cli_options(ROOT / "trade_lab" / "live.py")
