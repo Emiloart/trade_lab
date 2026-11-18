@@ -26,10 +26,10 @@ python -m pytest
 Run Ruff:
 
 ```bash
-ruff check trade_lab tests
+ruff check trade_lab tests\npython scripts/verify_docs.py
 ```
 
-The GitHub Actions CI workflow installs the project with development dependencies and runs pytest and Ruff against the maintained package and tests. A local pass does not replace reviewing the workflow result for the exact commit under test.
+The GitHub Actions workflow `.github/workflows/ci.yml` installs the project with development dependencies and runs pytest, Ruff against the maintained package and tests, and `scripts/verify_docs.py`. A local pass does not replace reviewing the workflow result for the exact commit under test.
 
 ## Code organization
 
@@ -42,7 +42,7 @@ Keep strategy rules in `trade_lab/strategy.py` and indicator definitions in `tra
 - Preserve the one-setup-per-New-York-day rule unless a strategy revision explicitly changes it and updates tests and docs.
 - Keep risk sizing conservative: round down to valid lot increments and reject sizes below the minimum.
 - Do not silently equate a signal, an alert, a simulated trade, and a broker fill.
-- Add tests for both expected behavior and failure paths whenever changing strategy, data, state, sizing, or notification behavior.
+- Add tests for both expected behavior and failure paths whenever changing strategy, data, state, sizing, or notification behavior. Update the relevant documentation in the same change; CI checks documented commands, variables, modules, CLI options, and workflow references against the repository.
 - Do not add real credentials, state files, or downloaded market data to commits.
 
 ## Change workflow
