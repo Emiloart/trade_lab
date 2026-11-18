@@ -113,10 +113,7 @@ def verify_workflow_contract() -> None:
 
     ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     required_checks = (
-        (
-            "ruff check trade_lab backtests/_common.py "
-            "backtests/vwap_backtest.py backtests/recent_backtest.py tests"
-        ),
+        "ruff check .",
         "pytest -q",
         "python scripts/verify_docs.py",
     )
