@@ -44,7 +44,13 @@ Configure `BOT_TOKEN` and `CHAT_ID` in repository Actions secrets before expecti
 
 The cron schedule is not an exchange calendar. The application’s stale-data check is a secondary guard, not a holiday-calendar implementation. GitHub-hosted runners and Actions cache are operational dependencies, not a durable database. The restore action's `cache-matched-key` output is passed as `CACHE_MATCHED_KEY` to the cache guard. The equivalent guard invocation is: A same-day cache miss during the session fails closed; it is not treated as a new day. Scheduled workflows run from the repository's default branch; pushing this workflow to a feature branch does not activate that branch's schedule on the default branch. Manual dispatch remains dry-run.
 
-Run the guard manually only when reproducing workflow behavior; it uses the current New York clock and the actual cache-matched key must come from the restore action:\n\n```bash\npython -m trade_lab.cache_guard --matched-key "$CACHE_MATCHED_KEY" --state-file .state/state.json\n```\n\n## State and manual P&L
+Run the guard manually only when reproducing workflow behavior; it uses the current New York clock and the actual cache-matched key must come from the restore action:
+
+```bash
+python -m trade_lab.cache_guard --matched-key "$CACHE_MATCHED_KEY" --state-file .state/state.json
+```
+
+## State and manual P&L
 
 By default state is stored at `.state/state.json`; its last-known-good predecessor is `.state/state.json.bak`. A missing primary with a backup, or an existing unreadable, malformed, structurally invalid, or unsupported-version file causes the monitor to stop with a non-zero exit. The scheduled cache guard creates an explicit empty baseline only before the session begins. A local first run may begin with no primary or backup and creates both on its first state mutation. Do not delete state to clear a daily lockout. Preserve both files before any manual recovery, and do not commit them.
 
