@@ -4,7 +4,7 @@
 
 - Python 3.10 or newer.
 - Dependencies declared in `pyproject.toml`: pandas, numpy, yfinance, and tzdata.
-- Telegram credentials are required only when sending a live alert.
+- Telegram credentials are required for live sending and the scheduled prepare/deliver modes; dry-run and cache validation do not send messages.
 
 Install for development:
 
