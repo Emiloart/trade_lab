@@ -100,6 +100,8 @@ def test_calibration_converts_tick_value_currency_to_account_currency():
 def test_calibration_rejects_unverifiable_or_inconsistent_inputs(path, value, message):
     config = _config()
     config[path[0]][path[1]] = value
+    if path == ("conversion", "tick_value_to_account_rate"):
+        config["instrument"]["tick_value_currency"] = "GBP"
     with pytest.raises(ValueError, match=message):
         _report(config)
 
