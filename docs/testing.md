@@ -1,59 +1,28 @@
 # Testing and verification
 
-## What the current suite covers
+## Automated coverage
 
-The automated pytest suite is organized around the package boundaries:
+The pytest suite covers data normalization, indicators, strategy boundaries, timezone/session behavior, sizing, state persistence, notification delivery, live orchestration, and the historical execution simulator. Backtest tests cover shared signal entry, stop/target collision ordering, stop gaps, open-position marking, realized-only metrics, and timestamp validation.
 
-| Area | Coverage focus |
-| --- | --- |
-| Data normalization | Timezone handling, column normalization, duplicate/incomplete rows |
-| Instrument conversion | Newest shared timestamp and missing overlap |
-| Indicators | VWAP grouping, true range, ATR rolling behavior |
-| Strategy | Directional conditions, tolerance boundary, stop/target levels, session gating |
-| Sessions | New York timezone, daylight-saving behavior, closed-bar and freshness rules |
-| Sizing | Risk budget, lot-step rounding, minimum and maximum lot behavior |
-| State and notifications | JSON persistence, backup recovery, pending-delivery lifecycle, daily closure, P&L accumulation, corruption handling, Telegram outcome classification |
-| Live orchestration | One-alert rule, dry-run behavior, stale signals/data, conversion failure, checkpointed delivery, retry and quarantine behavior |
-
-Tests use synthetic bars and fakes. They validate deterministic code behavior; they do not validate Yahoo Finance data quality, Telegram service availability, broker pricing, order execution, or profitability.
+Tests use synthetic bars and fakes. They establish deterministic conformance to implemented rules; they do not validate Yahoo Finance data quality, Telegram availability, broker pricing, fills, or profitability.
 
 ## Local verification
-
-Install development dependencies:
 
 ```bash
 python -m pip install -e ".[dev]"
 python -m pytest -q
-ruff check trade_lab tests
+ruff check trade_lab backtests/_common.py backtests/vwap_backtest.py backtests/recent_backtest.py tests
 python scripts/verify_docs.py
 ```
 
-The CI workflow at `.github/workflows/ci.yml` runs pytest, Ruff, and `scripts/verify_docs.py` on pushes to main and refactor branches, pull requests, and manual dispatches. The documentation verifier checks local Markdown links, executable Python module/script paths and Ruff targets in fenced commands and workflow run steps, CLI options, environment-variable references, the package module inventory, and workflow file references.
+CI runs the same Ruff, pytest, and documentation checks. The maintained backtest entry points and their shared helper are included in lint. Unrelated historical utilities remain separate research tools.
 
-## Required checks for state and workflow changes
+## Strategy and parity checks
 
-When changing persistence or Actions cache behavior, verify at least:
+- Live and backtest signal selection must call `trade_lab.strategy.prepare()` and `first_signal()`.
+- Any change to strategy inequalities, indicator calculation, session boundaries, or defaults must be tested once in the shared package, not duplicated in backtest scripts.
+- Backtest execution tests must cover same-candle stop/target collisions, gaps through stops, entry-bar exclusion, and unresolved positions.
+- Historical comparisons must use identical input bars, configuration, strategy revision, and execution assumptions.
+- Keep signal counts, simulated closed trades, open marks, and any future broker-confirmed fills as separate measurements.
 
-- A missing local state file initializes as a new store; scheduled cache bootstrap is allowed only before 10:00 New York time.
-- A malformed JSON file raises a state error and is not overwritten.
-- An unsupported schema version fails closed.
-- Scheduled delivery is skipped unless the pre-delivery pending-state checkpoint succeeds.
-- A failed prepare or checkpoint step cannot proceed to Telegram delivery.
-- A manual dry run does not write or save scheduled state.
-- A cache miss before 10:00 New York time may initialize and checkpoint the empty first-run state.
-- A cache miss at or after 10:00 New York time fails closed.
-- A pending alert is checkpointed before Telegram is called.
-- A pending alert restored from an earlier workflow attempt becomes `delivery_unknown` and is not sent again automatically.
-- The final cache is saved only after a persisted delivery outcome; if delivery is interrupted, the earlier pending checkpoint remains.
-
-The scheduled workflow uses separate pre-delivery checkpoint and post-delivery final-cache steps. Verify both step outcomes in GitHub Actions for the exact commit; the static documentation verifier does not emulate GitHub's cache service.
-
-## Required checks for strategy changes
-
-- Unit tests for exact inequality boundaries and representative edge cases.
-- Indicator tests across a New York date boundary and across daylight-saving changes.
-- A documented comparison against the previous strategy version.
-- Historical evaluation using the same data, timestamps, fees, and assumptions for both versions.
-- Separate reporting of signal counts, hypothetical fills, and actual broker fills (if broker integration is later introduced).
-
-Do not describe a green test suite as evidence of strategy profitability. Passing tests establish conformance to encoded rules, not whether those rules have positive expectancy.
+A green test suite proves implementation conformance, not positive expectancy or profitability.
