@@ -44,4 +44,4 @@ This is a simple price-ratio approximation. It is not a validated continuous map
 - No secondary provider or independent feed cross-check is implemented.
 - No explicit exchange holiday calendar is implemented.
 - The source and reference instruments must both have usable, overlapping bars.
-- Contract value, lot size, and currency assumptions must be checked with the actual broker before relying on displayed size.
+- Contract value, lot size, and currency assumptions must be checked with the actual broker before relying on displayed size. Use the [instrument calibration workflow](instrument-calibration.md) to record the specification and calculate a sizing matrix.
