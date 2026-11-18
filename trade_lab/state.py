@@ -20,6 +20,15 @@ class StateError(RuntimeError):
     """Raised when persisted state exists but cannot be trusted or saved."""
 
 
+def _finite_number(value: Any) -> bool:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        return math.isfinite(value)
+    except OverflowError:
+        return False
+
+
 class StateStore:
     """File-backed state with atomic replacement and a last-known-good backup.
 
@@ -58,16 +67,17 @@ class StateStore:
             if not isinstance(entries, list):
                 raise StateError(f"Invalid entries in state file {path}: {day}")
             pnl = record.get("realized_pnl")
-            if isinstance(pnl, bool) or not isinstance(pnl, (int, float)) or not math.isfinite(pnl):
+            if not _finite_number(pnl):
                 raise StateError(f"Invalid realized P&L in state file {path}: {day}")
 
             for entry in entries:
                 if not isinstance(entry, dict):
                     raise StateError(f"Invalid entry in state file {path}: {day}")
                 status = entry.get("status")
-                if status not in {"sent", "missed", "delivery_unknown"}:
+                if not isinstance(status, str) or status not in {"sent", "missed", "delivery_unknown"}:
                     raise StateError(f"Invalid entry status in state file {path}: {day}")
-                if entry.get("side") not in {"LONG", "SHORT"}:
+                side = entry.get("side")
+                if not isinstance(side, str) or side not in {"LONG", "SHORT"}:
                     raise StateError(f"Invalid entry side in state file {path}: {day}")
                 bar_time = entry.get("bar_time")
                 try:
@@ -80,9 +90,7 @@ class StateStore:
                     for field in ("entry", "lots"):
                         value = entry.get(field)
                         if (
-                            isinstance(value, bool)
-                            or not isinstance(value, (int, float))
-                            or not math.isfinite(value)
+                            not _finite_number(value)
                             or value <= 0
                         ):
                             raise StateError(f"Invalid {field} in state file {path}: {day}")
@@ -223,7 +231,10 @@ class StateStore:
     def record_pnl(self, day: str, pnl: float) -> None:
         """Add realized P&L (negative for a loss) for the day."""
         data = self._load()
-        value = float(pnl)
+        try:
+            value = float(pnl)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError("realized P&L must be finite") from exc
         if not math.isfinite(value):
             raise ValueError("realized P&L must be finite")
         record = self._day(data, day)
