@@ -78,6 +78,7 @@ def test_research_emits_candidates_and_separate_selected_test_rows():
             )),
         ],
         train_days=4, validation_days=2, test_days=2, step_days=2,
+        data_sources={"ETF": "fixture: synthetic OHLCV 5m"},
     )
     assert set(result["role"]) == {"candidate", "selected_test"}
     selected = result.loc[result["role"] == "selected_test"]
