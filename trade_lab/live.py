@@ -198,7 +198,9 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     try:
-        sender = lambda text: send_telegram(token, chat_id, text)
+        def sender(message: str) -> None:
+            send_telegram(token, chat_id, message)
+
         if args.deliver_pending:
             result = deliver_pending(
                 store, sender, os.environ.get("TRADE_LAB_RUN_ID") or f"local-{os.getpid()}"
