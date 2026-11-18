@@ -117,3 +117,23 @@ def test_reclaim_outcomes_reject_invalid_horizons():
 
     with pytest.raises(ValueError, match="positive integers"):
         measure_reclaim_outcomes(pd.DataFrame(), StrategyConfig(), (0,))
+
+def test_multi_instrument_research_uses_each_symbols_costs_and_records_provenance():
+    result = run_walk_forward_research(
+        {"ETF_A": bars_for_sessions(), "ETF_B": bars_for_sessions()},
+        {"ETF_A": instrument("ETF_A"), "ETF_B": instrument("ETF_B")},
+        {
+            "ETF_A": BacktestCosts(spread_points=0.02),
+            "ETF_B": BacktestCosts(spread_points=0.25, slippage_points=0.05),
+        },
+        [ResearchVariant("baseline", StrategyConfig(atr_period=1))],
+        train_days=4, validation_days=2, test_days=2,
+    )
+    selected = result.loc[result["role"] == "selected_test"]
+    assert set(selected["symbol"]) == {"ETF_A", "ETF_B"}
+    assert dict(zip(selected["symbol"], selected["spread_points"])) == {
+        "ETF_A": 0.02, "ETF_B": 0.25
+    }
+    assert selected["config_hash"].str.len().eq(64).all()
+    assert selected["data_bars"].eq(len(bars_for_sessions())).all()
+    assert selected["instrument_quantity_unit"].eq("share").all()
