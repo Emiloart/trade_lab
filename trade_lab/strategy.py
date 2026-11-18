@@ -8,7 +8,7 @@ from datetime import date
 import numpy as np
 import pandas as pd
 
-from .config import StrategyConfig
+from .config import StrategyParameters
 from .indicators import atr, session_vwap
 from .sessions import NY, in_window, window_mask
 
@@ -32,7 +32,7 @@ class Signal:
         return "LONG" if self.direction == LONG else "SHORT"
 
 
-def prepare(df: pd.DataFrame, cfg: StrategyConfig) -> pd.DataFrame:
+def prepare(df: pd.DataFrame, cfg: StrategyParameters) -> pd.DataFrame:
     """Return a copy of ``df`` with VWAP and ATR columns added."""
     out = df.sort_index().copy()
     out["VWAP"] = session_vwap(out)

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from .config import StrategyConfig
+from .config import AccountRiskConfig, StrategyConfig, StrategyParameters
 from .data import normalize_bars
 from .instruments import InstrumentSpec
 from .sessions import NY, in_window
@@ -73,11 +73,12 @@ def _exit_for_bar(
 
 def run_backtest(
     bars: pd.DataFrame,
-    cfg: StrategyConfig | None = None,
+    cfg: StrategyParameters | None = None,
     start_date: date | None = None,
     costs: BacktestCosts | None = None,
     instrument: InstrumentSpec | None = None,
     value_to_account_rate: float = 1.0,
+    risk: AccountRiskConfig | None = None,
 ) -> pd.DataFrame:
     """Simulate one first-signal trade per NY date with configurable execution costs.
 
@@ -86,7 +87,12 @@ def run_backtest(
     charged per unit per side. Sizing includes modeled round-trip costs so the
     stop-risk budget is not exceeded under these assumptions.
     """
-    config = cfg or StrategyConfig()
+    config = cfg or StrategyParameters()
+    risk_config = risk or (
+        AccountRiskConfig(config.account_size, config.risk_pct, config.max_daily_loss_pct)
+        if isinstance(config, StrategyConfig)
+        else AccountRiskConfig()
+    )
     execution = costs or BacktestCosts()
     if bars.empty:
         return pd.DataFrame()
@@ -121,7 +127,7 @@ def run_backtest(
         ]
         if instrument is None:
             risk_per_unit = signal.risk_distance + execution.total_risk_cost_per_unit
-            units = config.risk_dollars / risk_per_unit
+            units = risk_config.risk_dollars / risk_per_unit
         else:
             base_risk_per_unit = instrument.risk_per_quantity(
                 signal.risk_distance, value_to_account_rate

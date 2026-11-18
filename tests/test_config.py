@@ -2,7 +2,7 @@ import math
 
 import pytest
 
-from trade_lab.config import StrategyConfig
+from trade_lab.config import AccountRiskConfig, StrategyConfig, StrategyParameters
 
 
 @pytest.mark.parametrize("field", [
@@ -25,3 +25,17 @@ def test_environment_configuration_rejects_non_finite_values(raw):
 def test_atr_period_must_be_an_integer():
     with pytest.raises(ValueError, match="integer"):
         StrategyConfig(atr_period=2.5)
+
+
+def test_strategy_parameters_are_separate_from_account_risk():
+    strategy = StrategyParameters(atr_period=7, reward_risk=1.8)
+    risk = AccountRiskConfig(account_size=20_000, risk_pct=0.005)
+    assert strategy.atr_period == 7
+    assert risk.risk_dollars == pytest.approx(100)
+    assert not hasattr(strategy, "account_size")
+
+
+def test_legacy_strategy_config_remains_compatible():
+    config = StrategyConfig(account_size=5_000, risk_pct=0.005)
+    assert config.risk_dollars == pytest.approx(25)
+    assert isinstance(config, StrategyParameters)

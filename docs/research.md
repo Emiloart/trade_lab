@@ -2,8 +2,10 @@
 
 ## Configuration and instrument boundary
 
-The live monitor retains legacy account-risk and CFD lot-sizing fields in
-`StrategyConfig` for compatibility. Research runs must supply an explicit
+New research code separates `StrategyParameters` from `AccountRiskConfig`.
+The live monitor retains the combined `StrategyConfig` as a backwards-compatible
+adapter, including legacy CFD lot-sizing fields. Backtests accept the separated
+objects directly. Research runs must supply an explicit
 `InstrumentSpec` and `BacktestCosts` for every symbol. Never infer tick
 economics from a ticker or reuse one instrument's costs for another.
 

@@ -13,7 +13,7 @@ from datetime import date
 import pandas as pd
 
 from .backtest import BacktestCosts, performance_summary, run_backtest
-from .config import StrategyConfig
+from .config import AccountRiskConfig, StrategyParameters
 from .instruments import InstrumentSpec
 
 
@@ -21,7 +21,7 @@ from .instruments import InstrumentSpec
 class ResearchVariant:
     """Named strategy configuration included in a research universe."""
     name: str
-    config: StrategyConfig
+    config: StrategyParameters
 
     def __post_init__(self) -> None:
         if not self.name.strip():
@@ -99,6 +99,7 @@ def run_walk_forward_research(
     test_days: int,
     step_days: int | None = None,
     value_to_account_rates: Mapping[str, float] | None = None,
+    risk: AccountRiskConfig | None = None,
 ) -> pd.DataFrame:
     """Evaluate symbols with mandatory per-symbol specs and execution costs.
 
@@ -137,7 +138,7 @@ def run_walk_forward_research(
             for variant in variants:
                 trades = run_backtest(
                     bars, variant.config, costs=costs[symbol], instrument=instrument,
-                    value_to_account_rate=rates.get(symbol, 1.0),
+                    value_to_account_rate=rates.get(symbol, 1.0), risk=risk, risk=risk,
                 )
                 train = _summary_for_range(trades, window.train_start, window.train_end)
                 validation = _summary_for_range(

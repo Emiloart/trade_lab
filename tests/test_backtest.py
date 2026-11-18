@@ -184,3 +184,20 @@ def test_instrument_backtest_requires_valid_account_currency_conversion():
             instrument=spec,
             value_to_account_rate=0,
         )
+
+
+def test_backtest_accepts_separate_strategy_and_account_risk_configs():
+    from trade_lab.config import AccountRiskConfig, StrategyParameters
+
+    trades = run_backtest(
+        sample_bars((101.0, 106.0, 100.0, 105.0)),
+        StrategyParameters(atr_period=1),
+        instrument=InstrumentSpec(
+            symbol="AAPL", asset_class=AssetClass.EQUITY, quote_currency="USD",
+            tick_size=0.01, tick_value=0.01, tick_value_currency="USD",
+            quantity_unit="share", min_quantity=1, quantity_step=1,
+            max_quantity=100_000,
+        ),
+        risk=AccountRiskConfig(account_size=5_000, risk_pct=0.01),
+    )
+    assert trades.iloc[0]["Risk_Budget_$"] == pytest.approx(50.0)

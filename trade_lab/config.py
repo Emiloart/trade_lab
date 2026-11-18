@@ -1,4 +1,4 @@
-"""Strategy and risk configuration, validated at construction time."""
+"""Strategy, account-risk, and legacy execution configuration."""
 
 from __future__ import annotations
 
@@ -12,66 +12,24 @@ from .filters import StrategyFilters
 
 
 @dataclass(frozen=True)
-class StrategyConfig:
-    """All tunable parameters in one immutable object."""
+class StrategyParameters:
+    """Instrument-independent parameters defining the signal and session."""
 
-    # Optional research filters; disabled by default.
     filters: StrategyFilters = field(default_factory=StrategyFilters)
-
-    # Account and risk
-    account_size: float = 10_000.0
-    risk_pct: float = 0.01
-    max_daily_loss_pct: float = 0.02
-
-    # Signal definition
     atr_period: int = 14
     atr_stop_mult: float = 1.5
     reward_risk: float = 1.3
     vwap_tolerance: float = 0.001
-
-    # Trading window in New York local time. Using New York time (not a fixed
-    # UTC offset) keeps the window aligned with the US cash session across
-    # daylight saving changes.
     session_start: time = time(10, 0)
     session_end: time = time(15, 0)
 
-    # Execution instrument (CFD) sizing. Check these against your broker's
-    # contract specification before trusting the lot size in alerts.
-    point_value_per_lot: float = 10.0
-    min_lot: float = 0.01
-    lot_step: float = 0.01
-    max_lot: float = 100.0
-
     def __post_init__(self) -> None:
-        numeric_fields = {
-            "account_size": self.account_size,
-            "risk_pct": self.risk_pct,
-            "max_daily_loss_pct": self.max_daily_loss_pct,
-            "atr_stop_mult": self.atr_stop_mult,
-            "reward_risk": self.reward_risk,
-            "vwap_tolerance": self.vwap_tolerance,
-            "point_value_per_lot": self.point_value_per_lot,
-            "min_lot": self.min_lot,
-            "lot_step": self.lot_step,
-            "max_lot": self.max_lot,
-        }
-        for name, value in numeric_fields.items():
-            try:
-                finite = math.isfinite(value)
-            except TypeError as exc:
-                raise ValueError(f"{name} must be a finite number") from exc
-            if not finite:
+        for name in ("atr_stop_mult", "reward_risk", "vwap_tolerance"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not math.isfinite(value):
                 raise ValueError(f"{name} must be a finite number")
         if isinstance(self.atr_period, bool) or not isinstance(self.atr_period, int):
             raise ValueError("atr_period must be an integer")
-        if self.account_size <= 0:
-            raise ValueError("account_size must be positive")
-        if not 0 < self.risk_pct < 1:
-            raise ValueError("risk_pct must be between 0 and 1 (exclusive)")
-        if not 0 < self.max_daily_loss_pct < 1:
-            raise ValueError("max_daily_loss_pct must be between 0 and 1 (exclusive)")
-        if self.max_daily_loss_pct < self.risk_pct:
-            raise ValueError("max_daily_loss_pct must be at least risk_pct")
         if self.atr_period < 1:
             raise ValueError("atr_period must be at least 1")
         if self.atr_stop_mult <= 0 or self.reward_risk <= 0:
@@ -80,29 +38,89 @@ class StrategyConfig:
             raise ValueError("vwap_tolerance cannot be negative")
         if self.session_start >= self.session_end:
             raise ValueError("session_start must be before session_end")
-        if self.point_value_per_lot <= 0 or self.lot_step <= 0 or self.min_lot <= 0:
-            raise ValueError("point_value_per_lot, lot_step and min_lot must be positive")
+
+
+@dataclass(frozen=True)
+class AccountRiskConfig:
+    """Account-currency capital and risk limits, independent of instruments."""
+
+    account_size: float = 10_000.0
+    risk_pct: float = 0.01
+    max_daily_loss_pct: float = 0.02
+
+    def __post_init__(self) -> None:
+        for name in ("account_size", "risk_pct", "max_daily_loss_pct"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not math.isfinite(value):
+                raise ValueError(f"{name} must be a finite number")
+        if self.account_size <= 0:
+            raise ValueError("account_size must be positive")
+        if not 0 < self.risk_pct < 1:
+            raise ValueError("risk_pct must be between 0 and 1 (exclusive)")
+        if not 0 < self.max_daily_loss_pct < 1:
+            raise ValueError("max_daily_loss_pct must be between 0 and 1 (exclusive)")
+        if self.max_daily_loss_pct < self.risk_pct:
+            raise ValueError("max_daily_loss_pct must be at least risk_pct")
+
+    @property
+    def risk_dollars(self) -> float:
+        """Account-currency amount risked per trade."""
+        return self.account_size * self.risk_pct
+
+    @property
+    def max_daily_loss_dollars(self) -> float:
+        """Account-currency daily realized-loss limit."""
+        return self.account_size * self.max_daily_loss_pct
+
+
+@dataclass(frozen=True)
+class StrategyConfig(StrategyParameters):
+    """Backward-compatible combined config for the existing live monitor.
+
+    New strategy research should use StrategyParameters and pass
+    AccountRiskConfig separately. The CFD lot fields are legacy monitor
+    settings; instrument-aware research must use InstrumentSpec instead.
+    """
+
+    account_size: float = 10_000.0
+    risk_pct: float = 0.01
+    max_daily_loss_pct: float = 0.02
+    point_value_per_lot: float = 10.0
+    min_lot: float = 0.01
+    lot_step: float = 0.01
+    max_lot: float = 100.0
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        AccountRiskConfig(
+            account_size=self.account_size,
+            risk_pct=self.risk_pct,
+            max_daily_loss_pct=self.max_daily_loss_pct,
+        )
+        for name in ("point_value_per_lot", "min_lot", "lot_step", "max_lot"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not math.isfinite(value):
+                raise ValueError(f"{name} must be a finite number")
+            if value <= 0:
+                raise ValueError(f"{name} must be positive")
         if self.max_lot < self.min_lot:
             raise ValueError("max_lot must be at least min_lot")
 
     @property
     def risk_dollars(self) -> float:
-        """Dollar amount risked on each trade."""
-        return self.account_size * self.risk_pct
+        return AccountRiskConfig(
+            self.account_size, self.risk_pct, self.max_daily_loss_pct
+        ).risk_dollars
 
     @property
     def max_daily_loss_dollars(self) -> float:
-        """Realized loss at which trading stops for the day."""
-        return self.account_size * self.max_daily_loss_pct
+        return AccountRiskConfig(
+            self.account_size, self.risk_pct, self.max_daily_loss_pct
+        ).max_daily_loss_dollars
 
     @classmethod
     def from_env(cls, environ: Mapping[str, str] | None = None) -> StrategyConfig:
-        """Build a config from environment variables, falling back to defaults.
-
-        Recognised variables: ACCOUNT_SIZE, RISK_PERCENTAGE,
-        MAX_DAILY_LOSS_PERCENTAGE, REWARD_RISK, ATR_STOP_MULT,
-        POINT_VALUE_PER_LOT, MIN_LOT, LOT_STEP.
-        """
+        """Build the legacy live-monitor config from environment variables."""
         env = os.environ if environ is None else environ
         mapping = {
             "ACCOUNT_SIZE": "account_size",
