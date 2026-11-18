@@ -60,7 +60,7 @@ report = run_walk_forward_research(
                                   commission_per_unit=commission_b),
     },
     variants=variants, train_days=120, validation_days=20,
-    test_days=20, step_days=20,
+    test_days=20, step_days=20, final_holdout_days=60,
 )
 report.to_csv("walk_forward_report.csv", index=False)
 ```
@@ -70,6 +70,11 @@ reported as `unspecified`. The report also records data bounds and bar count,
 a strategy configuration hash, contract economics, cost assumptions, and
 account-risk assumptions.
 
+When `final_holdout_days` is positive, the last N shared sessions are excluded
+from rolling development windows. The runner chooses one final variant using
+aggregate validation expectancy and emits a separate `final_holdout` row.
+That holdout is not used to tune or select the configuration.
+
 The caller must document each symbol's actual instrument specification,
 account-currency conversion rate, spread, slippage, commission, and data
 provenance. No placeholder economics should be presented as observed costs.
@@ -78,13 +83,14 @@ provenance. No placeholder economics should be presented as observed costs.
 
 - The live monitor still assumes QQQ signal bars and NQ reference-price
   conversion. It is not a generic multi-instrument live monitor.
-- `StrategyConfig` still contains legacy risk and lot fields; a clean
-  strategy/risk/account configuration migration remains outstanding.
+- `StrategyConfig` retains legacy account-risk and CFD lot fields only as a
+  backwards-compatible adapter for the live monitor. New research code uses
+  `StrategyParameters` and `AccountRiskConfig` separately.
 - No verified multi-instrument historical datasets or broker cost schedules
   are bundled. This repository therefore cannot yet support a factual
   cross-instrument performance conclusion.
-- Reclaim quality still needs a predefined outcome study (post-reclaim
-  excursion, adverse excursion, and follow-through at fixed horizons).
+- Reclaim-quality metrics are implemented, but empirical conclusions still
+  require real historical data and horizons chosen before inspecting results.
 - Rolling test windows are out-of-sample relative to their own validation
   selection, but are not one untouched final holdout. Reserve a later,
   untouched date range for final confirmation.

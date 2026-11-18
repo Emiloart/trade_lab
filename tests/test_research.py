@@ -140,3 +140,43 @@ def test_multi_instrument_research_uses_each_symbols_costs_and_records_provenanc
     assert selected["instrument_quantity_unit"].eq("share").all()
     assert set(selected["data_source"]) == {"vendor-a 5m", "vendor-b 5m"}
     assert selected.groupby("window")["test_start"].nunique().eq(1).all()
+
+
+
+def test_final_holdout_is_reserved_after_walk_forward_development():
+    result = run_walk_forward_research(
+        {"ETF": bars_for_sessions()},
+        {"ETF": instrument("ETF")},
+        {"ETF": BacktestCosts(spread_points=0.02)},
+        [
+            ResearchVariant("baseline", StrategyConfig(atr_period=1)),
+            ResearchVariant(
+                "filtered",
+                StrategyConfig(atr_period=1, filters=StrategyFilters(min_atr_pct=0.1)),
+            ),
+        ],
+        train_days=4,
+        validation_days=2,
+        test_days=2,
+        final_holdout_days=2,
+    )
+    holdout = result.loc[result["role"] == "final_holdout"]
+    rolling = result.loc[result["role"] == "selected_test"]
+    assert len(holdout) == 1
+    assert holdout.iloc[0]["holdout_start"] > rolling["test_end"].max()
+    assert holdout.iloc[0]["selected_on"] == "aggregate_validation_expectancy_r"
+    assert pd.notna(holdout.iloc[0]["holdout_closed"])
+
+
+def test_final_holdout_must_leave_development_sessions():
+    with pytest.raises(ValueError, match="leave at least one development"):
+        run_walk_forward_research(
+            {"ETF": bars_for_sessions(5)},
+            {"ETF": instrument("ETF")},
+            {"ETF": BacktestCosts()},
+            [ResearchVariant("baseline", StrategyConfig(atr_period=1))],
+            train_days=2,
+            validation_days=1,
+            test_days=1,
+            final_holdout_days=5,
+        )

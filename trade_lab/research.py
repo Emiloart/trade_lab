@@ -110,6 +110,7 @@ def run_walk_forward_research(
     value_to_account_rates: Mapping[str, float] | None = None,
     risk: AccountRiskConfig | None = None,
     data_sources: Mapping[str, str] | None = None,
+    final_holdout_days: int = 0,
 ) -> pd.DataFrame:
     """Evaluate symbols on shared calendar windows and explicit per-symbol costs.
 
@@ -125,6 +126,12 @@ def run_walk_forward_research(
         raise ValueError("at least one research variant is required")
     if len({variant.name for variant in variants}) != len(variants):
         raise ValueError("research variant names must be unique")
+    if (
+        isinstance(final_holdout_days, bool)
+        or not isinstance(final_holdout_days, int)
+        or final_holdout_days < 0
+    ):
+        raise ValueError("final_holdout_days must be a non-negative integer")
 
     rates = value_to_account_rates or {}
     sources = data_sources or {}
@@ -146,8 +153,16 @@ def run_walk_forward_research(
         sessions_by_symbol[symbol] = set(bars.index.tz_convert(NY).date)
 
     common_sessions = sorted(set.intersection(*sessions_by_symbol.values()))
+    if final_holdout_days >= len(common_sessions) and final_holdout_days:
+        raise ValueError("final holdout must leave at least one development session")
+    holdout_sessions = (
+        common_sessions[-final_holdout_days:] if final_holdout_days else []
+    )
+    development_sessions = (
+        common_sessions[:-final_holdout_days] if final_holdout_days else common_sessions
+    )
     windows = make_walk_forward_windows(
-        common_sessions, train_days, validation_days, test_days, step_days
+        development_sessions, train_days, validation_days, test_days, step_days
     )
     if not windows:
         raise ValueError(
@@ -155,6 +170,12 @@ def run_walk_forward_research(
             "insufficient for requested walk-forward windows"
         )
 
+    validation_sessions = {
+        session
+        for window in windows
+        for session in common_sessions
+        if window.validation_start <= session <= window.validation_end
+    }
     output: list[dict[str, object]] = []
     for symbol, bars in datasets.items():
         instrument = instruments[symbol]
@@ -245,6 +266,37 @@ def run_walk_forward_research(
                 "test_start": window.test_start.isoformat(),
                 "test_end": window.test_end.isoformat(),
                 **{f"test_{key}": value for key, value in test.items()},
+            })
+
+        if holdout_sessions:
+            aggregate = []
+            for variant in variants:
+                trades = trades_by_variant[variant.name]
+                validation_trades = (
+                    trades.loc[
+                        trades["Date"].map(date.fromisoformat).isin(validation_sessions)
+                    ]
+                    if not trades.empty
+                    else trades
+                )
+                aggregate.append((variant, performance_summary(validation_trades)))
+            final_variant, _ = max(aggregate, key=lambda item: _selection_key(item[1]))
+            holdout = _summary_for_range(
+                trades_by_variant[final_variant.name],
+                holdout_sessions[0],
+                holdout_sessions[-1],
+            )
+            output.append({
+                "symbol": symbol,
+                "window": "final",
+                "variant": final_variant.name,
+                "role": "final_holdout",
+                "selected_on": "aggregate_validation_expectancy_r",
+                **metadata_by_variant[final_variant.name],
+                "validation_sessions_used": len(validation_sessions),
+                "holdout_start": holdout_sessions[0].isoformat(),
+                "holdout_end": holdout_sessions[-1].isoformat(),
+                **{f"holdout_{key}": value for key, value in holdout.items()},
             })
     return pd.DataFrame(output)
 
