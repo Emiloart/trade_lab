@@ -143,7 +143,9 @@ def run_from_config(config_path: str | Path, output_path: str | Path) -> int:
             csv_path = source_path.parent / csv_path
         csv_path = csv_path.resolve()
         if csv_path in input_paths:
-            raise ValueError("a CSV input path cannot be reused as the configuration or another input")
+            raise ValueError(
+                "a CSV input path cannot be reused as the configuration or another input"
+            )
         input_paths.add(csv_path)
         datasets[symbol] = load_csv(csv_path)
         instruments[symbol] = _instrument(item["instrument"], symbol)
