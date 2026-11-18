@@ -21,4 +21,4 @@ jobs:
       - run: python -m pip install -e ".[dev]"
       # Legacy research scripts in backtests/ are not part of the maintained package.
       - run: ruff check trade_lab tests
-      - run: pytest -q
+      - run: pytest -q\n      - run: python scripts/verify_docs.py
