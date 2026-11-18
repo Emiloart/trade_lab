@@ -326,30 +326,8 @@ def run_walk_forward_research(
                     **{f"validation_{key}": value for key, value in validation_stats.items()},
                 })
 
-            eligible = [
-                item for item in evaluated
-                if int(item[2]["sample_trades"]) >= minimum_validation_trades
-            ]
-            if not eligible:
-                output.append({
-                    "symbol": symbol, "window": window_number, "variant": "",
-                    "role": "selection_rejected",
-                    "decision": "REJECT",
-                    "rejection_reasons": "INSUFFICIENT_VALIDATION_TRADES",
-                    "minimum_validation_trades": minimum_validation_trades,
-                    "eligible_variants": 0,
-                    "candidate_variants": len(variants),
-                    "train_start": window.train_start.isoformat(),
-                    "train_end": window.train_end.isoformat(),
-                    "validation_start": window.validation_start.isoformat(),
-                    "validation_end": window.validation_end.isoformat(),
-                    "test_start": window.test_start.isoformat(),
-                    "test_end": window.test_end.isoformat(),
-                })
-                continue
-
             selected_variant, _, selected_validation_stats = max(
-                eligible,
+                evaluated,
                 key=lambda item: (
                     float(item[2]["adjusted_expectancy_ci_low"])
                     if math.isfinite(float(item[2]["adjusted_expectancy_ci_low"]))
@@ -374,6 +352,8 @@ def run_walk_forward_research(
             reasons = rejection_reasons(
                 test_stats, minimum_trades=minimum_test_trades
             )
+            if int(selected_validation_stats["sample_trades"]) < minimum_validation_trades:
+                reasons.insert(0, "INSUFFICIENT_VALIDATION_TRADES")
             stress_metrics: dict[str, object] = {}
             max_multiplier = max(cost_stress_multipliers)
             max_stress_stats: dict[str, float | int] = {}
@@ -445,13 +425,9 @@ def run_walk_forward_research(
                     family_size=len(variants), seed=4729,
                 )
                 aggregate.append((variant, performance_summary(validation_trades), stats))
-            eligible = [
-                item for item in aggregate
-                if int(item[2]["sample_trades"]) >= minimum_validation_trades
-            ]
-            if eligible:
+            if aggregate:
                 final_variant, _, final_validation_stats = max(
-                    eligible,
+                    aggregate,
                     key=lambda item: (
                         float(item[2]["adjusted_expectancy_ci_low"])
                         if math.isfinite(float(item[2]["adjusted_expectancy_ci_low"]))
@@ -479,6 +455,8 @@ def run_walk_forward_research(
                 holdout_reasons = rejection_reasons(
                     holdout_stats, minimum_trades=minimum_test_trades
                 )
+                if int(final_validation_stats["sample_trades"]) < minimum_validation_trades:
+                    holdout_reasons.insert(0, "INSUFFICIENT_VALIDATION_TRADES")
                 output.append({
                     "symbol": symbol, "window": "final", "variant": final_variant.name,
                     "role": "final_holdout",
