@@ -123,9 +123,10 @@ def run_backtest(
             risk_per_unit = signal.risk_distance + execution.total_risk_cost_per_unit
             units = config.risk_dollars / risk_per_unit
         else:
-            tick_value_per_price_point = (
-                instrument.tick_value / instrument.tick_size * value_to_account_rate
+            base_risk_per_unit = instrument.risk_per_quantity(
+                signal.risk_distance, value_to_account_rate
             )
+            tick_value_per_price_point = base_risk_per_unit / signal.risk_distance
             commission_price_points = (
                 2.0 * execution.commission_per_unit / tick_value_per_price_point
             )
@@ -144,7 +145,7 @@ def run_backtest(
             if units <= 0:
                 continue
             risk_per_unit = (
-                instrument.risk_per_quantity(signal.risk_distance, value_to_account_rate)
+                base_risk_per_unit
                 + instrument.price_cost_per_quantity(
                     execution.spread_points + 2.0 * execution.slippage_points,
                     value_to_account_rate,
