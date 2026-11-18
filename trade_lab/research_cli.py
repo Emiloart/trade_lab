@@ -147,7 +147,8 @@ def _write_artifacts(
 ) -> None:
     """Persist content-addressed source snapshots and a complete run manifest."""
     for symbol, source in sources.items():
-        snapshot = artifact_dir / "datasets" / f"{symbol}-{source['sha256']}.csv"
+        symbol_key = hashlib.sha256(symbol.encode("utf-8")).hexdigest()[:12]
+        snapshot = artifact_dir / "datasets" / f"{symbol_key}-{source['sha256']}.csv"
         _atomic_write(snapshot, source["bytes"])
         source["snapshot"] = str(Path("datasets") / snapshot.name)
 
