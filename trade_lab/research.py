@@ -133,7 +133,10 @@ def run_walk_forward_research(
         if symbol not in instruments or symbol not in costs:
             raise ValueError(f"{symbol} requires explicit instrument economics and costs")
         if instruments[symbol].symbol != symbol:
-            raise ValueError(f"instrument key {symbol!r} does not match {instruments[symbol].symbol!r}")
+            instrument_symbol = instruments[symbol].symbol
+            raise ValueError(
+                f"instrument key {symbol!r} does not match {instrument_symbol!r}"
+            )
         if bars.empty or not isinstance(bars.index, pd.DatetimeIndex) or bars.index.tz is None:
             raise ValueError(f"{symbol} requires non-empty timezone-aware bars")
         if bars.index.has_duplicates or not bars.index.is_monotonic_increasing:
