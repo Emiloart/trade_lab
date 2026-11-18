@@ -123,6 +123,6 @@ class StrategyConfig:
                 overrides[config_field] = float(raw)
             except ValueError as exc:
                 raise ValueError(f"{var} must be a number, got {raw!r}") from exc
-            if not math.isfinite(overrides[field]):
+            if not math.isfinite(overrides[config_field]):
                 raise ValueError(f"{var} must be a finite number, got {raw!r}")
         return cls(**overrides)

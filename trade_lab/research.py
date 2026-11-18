@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from collections.abc import Mapping
 from datetime import date
-from typing import Mapping
 
 import pandas as pd
 
