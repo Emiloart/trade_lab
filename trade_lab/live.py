@@ -53,6 +53,8 @@ def run_once(
     fetch: Fetcher,
     send: Sender,
     dry_run: bool = False,
+    defer_delivery: bool = False,
+    run_id: str | None = None,
 ) -> RunResult:
     """Evaluate the market once and alert if the day's setup is fresh."""
     now = pd.Timestamp(now)
@@ -116,23 +118,43 @@ def run_once(
     if dry_run:
         return RunResult("dry_run", signal=sig, message=message)
 
+    delivery_run_id = run_id or os.environ.get("TRADE_LAB_RUN_ID") or f"local-{os.getpid()}"
+    store.record_pending(day, sig, entry, lots, message, delivery_run_id)
+    if defer_delivery:
+        return RunResult("delivery_prepared", signal=sig, message=message)
+    return deliver_pending(store, send, delivery_run_id)
+
+
+def deliver_pending(store: StateStore, send: Sender, run_id: str) -> RunResult:
+    """Deliver only the pending alert prepared by this exact process/run."""
+    pending = store.pending_delivery(run_id)
+    if pending is None:
+        return RunResult("no_pending_delivery")
+    day, entry = pending
     try:
-        send(message)
+        send(entry["message"])
     except NotifyError as exc:
         if exc.delivery_uncertain:
-            # Do not automatically resend: Telegram may have accepted the
-            # message before the response was lost. Reconcile manually.
-            store.record_delivery_unknown(day, "telegram_delivery_uncertain", sig)
-            return RunResult("delivery_unknown", str(exc), sig, message)
-        # Explicit rejection: leave the day open so a corrected request can retry.
-        return RunResult("send_failed", str(exc), sig, message)
-    store.record_sent(day, sig, entry, lots)
-    return RunResult("sent", signal=sig, message=message)
+            store.mark_delivery_unknown(day, entry["bar_time"], "telegram_delivery_uncertain")
+            return RunResult("delivery_unknown", str(exc))
+        store.clear_pending(day, entry["bar_time"])
+        return RunResult("send_failed", str(exc))
+    store.mark_sent(day, entry["bar_time"])
+    return RunResult("sent", message=entry["message"])
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="VWAP pullback live monitor")
-    parser.add_argument("--dry-run", action="store_true", help="print alerts, do not send")
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--dry-run", action="store_true", help="print alerts, do not send")
+    modes.add_argument(
+        "--prepare-alert", action="store_true",
+        help="persist a pending alert without sending it (for checkpointed workflows)",
+    )
+    modes.add_argument(
+        "--deliver-pending", action="store_true",
+        help="deliver the pending alert created by this workflow run",
+    )
     parser.add_argument("--state-file", help="path to the JSON state file")
     parser.add_argument("--now", help="ISO timestamp to evaluate instead of the clock (UTC)")
     parser.add_argument(
@@ -171,19 +193,27 @@ def main(argv: list[str] | None = None) -> int:
 
     token = os.environ.get("BOT_TOKEN", "")
     chat_id = os.environ.get("CHAT_ID", "")
-    if not args.dry_run and not (token and chat_id):
-        log.error("BOT_TOKEN and CHAT_ID must be set (or use --dry-run)")
+    if not (args.dry_run or args.prepare_alert) and not (token and chat_id):
+        log.error("BOT_TOKEN and CHAT_ID must be set (or use --dry-run/--prepare-alert)")
         return 2
 
     try:
-        result = run_once(
-            now,
-            cfg,
-            store,
-            fetch_bars,
-            lambda text: send_telegram(token, chat_id, text),
-            dry_run=args.dry_run,
-        )
+        sender = lambda text: send_telegram(token, chat_id, text)
+        if args.deliver_pending:
+            result = deliver_pending(
+                store, sender, os.environ.get("TRADE_LAB_RUN_ID") or f"local-{os.getpid()}"
+            )
+        else:
+            result = run_once(
+                now,
+                cfg,
+                store,
+                fetch_bars,
+                sender,
+                dry_run=args.dry_run,
+                defer_delivery=args.prepare_alert,
+                run_id=os.environ.get("TRADE_LAB_RUN_ID") or f"local-{os.getpid()}",
+            )
     except StateError as exc:
         log.error("State validation failed; refusing to continue: %s", exc)
         return 2
