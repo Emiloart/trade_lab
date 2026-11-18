@@ -101,7 +101,9 @@ class StateStore:
                     },
                 }[status]
                 if set(entry) != expected_fields:
-                    raise StateError(f"Unexpected fields for {status} entry in state file {path}: {day}")
+                    raise StateError(
+                        f"Unexpected fields for {status} entry in state file {path}: {day}"
+                    )
                 if status in {"sent", "delivery_pending", "delivery_unknown"}:
                     for field in ("entry", "lots"):
                         value = entry.get(field)
