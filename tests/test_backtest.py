@@ -257,3 +257,21 @@ def test_backtest_accepts_separate_strategy_and_account_risk_configs():
         risk=AccountRiskConfig(account_size=5_000, risk_pct=0.01),
     )
     assert 0 < trades.iloc[0]["Risk_Budget_$"] <= 50.0
+
+
+def test_short_stop_gap_fills_at_worse_open():
+    index = pd.date_range("2026-11-18 15:00", periods=4, freq="5min", tz="UTC")
+    bars = pd.DataFrame(
+        {
+            "Open": [100.0, 99.5, 99.0, 103.0],
+            "High": [101.0, 100.0, 100.0, 104.0],
+            "Low": [99.0, 98.0, 98.0, 102.0],
+            "Close": [100.0, 99.0, 99.5, 103.5],
+            "Volume": [1000.0] * 4,
+        },
+        index=index,
+    )
+    trade = run_backtest(bars, config()).iloc[0]
+    assert trade["Direction"] == "SHORT"
+    assert trade["Exit_Reason"] == "STOP_GAP"
+    assert trade["Exit"] == pytest.approx(103.0)
