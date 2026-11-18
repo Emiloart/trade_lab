@@ -8,6 +8,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Protocol, runtime_checkable
 
+from .market_data import MarketQuote
+
 
 class ExecutionMode(str, Enum):
     DISABLED = "disabled"
@@ -58,24 +60,6 @@ class AccountSnapshot:
             value = getattr(self, name)
             if isinstance(value, bool) or not math.isfinite(value) or value < 0:
                 raise ValueError(f"{name} must be a finite non-negative number")
-
-
-@dataclass(frozen=True)
-class Quote:
-    symbol: str
-    bid: float
-    ask: float
-    timestamp: datetime
-
-    def __post_init__(self) -> None:
-        if not self.symbol.strip():
-            raise ValueError("symbol cannot be empty")
-        if not math.isfinite(self.bid) or not math.isfinite(self.ask):
-            raise ValueError("bid and ask must be finite")
-        if self.bid <= 0 or self.ask < self.bid:
-            raise ValueError("quote requires positive bid and ask >= bid")
-        if self.timestamp.tzinfo is None:
-            raise ValueError("quote timestamp must be timezone-aware")
 
 
 @dataclass(frozen=True)
@@ -134,11 +118,13 @@ class BrokerAdapter(Protocol):
 
     async def get_account(self) -> AccountSnapshot: ...
 
-    async def get_quote(self, symbol: str) -> Quote: ...
+    async def get_quote(self, symbol: str) -> MarketQuote: ...
 
     async def submit_order(self, request: OrderRequest) -> OrderResult: ...
 
     async def get_order(self, client_order_id: str) -> OrderResult: ...
+
+    async def cancel_order(self, client_order_id: str) -> OrderResult: ...
 
     async def list_positions(self) -> list[Position]: ...
 
