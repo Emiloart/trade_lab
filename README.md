@@ -21,7 +21,7 @@ A Python-based market-monitoring and Telegram alerting system for a VWAP pullbac
 - QQQ is the signal source; NQ futures are used to scale reference levels. This is an approximation, not a validated mapping to every broker's US100/NAS100 CFD.
 - Contract value, lot size, and account currency assumptions must be verified against the actual broker.
 - The daily loss gate depends on manually recorded realized P&L. There is no broker/account integration.
-- JSON state plus GitHub Actions cache is not a transactional database. A crash after Telegram accepts an alert but before state is saved can permit a duplicate alert. Corrupt or unsupported state stops the monitor rather than silently resetting history.
+- JSON state plus GitHub Actions cache is not a transactional database. The scheduled workflow checkpoints a pending delivery before calling Telegram and will not automatically resend a checkpoint restored from an interrupted run. If the same-day cache is missing during the session, the workflow stops and requires manual reconciliation. Corrupt or unsupported state also stops the monitor.
 - Historical scripts under `backtests/` have not yet been migrated to the shared strategy package. Their results are not guaranteed to match live behavior.
 - The small historical sample previously shown in this repository is not evidence of strategy robustness or profitability.
 
@@ -118,7 +118,7 @@ Amounts accumulate against the current New York trading date.
 
 ```bash
 python -m pytest
-ruff check trade_lab tests
+ruff check trade_lab tests\npython scripts/verify_docs.py
 ```
 
 ## Backtesting
