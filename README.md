@@ -73,7 +73,7 @@ Both scripts call the shared strategy implementation. See [Backtesting](docs/bac
 
 ```bash
 python -m pytest -q
-ruff check trade_lab backtests/_common.py backtests/vwap_backtest.py backtests/recent_backtest.py tests
+ruff check .
 python scripts/verify_docs.py
 ```
 
