@@ -23,7 +23,10 @@ def _fixture(tmp_path):
         "risk": {"account_size": 10000, "risk_pct": 0.01, "max_daily_loss_pct": 0.02},
         "variants": [
             {"name": "baseline", "strategy": {"atr_period": 1}},
-            {"name": "filtered", "strategy": {"atr_period": 1, "filters": {"max_pullback_atr": 0.5}}},
+            {
+                "name": "filtered",
+                "strategy": {"atr_period": 1, "filters": {"max_pullback_atr": 0.5}},
+            },
         ],
         "symbols": {"ETF": {
             "csv": "fixture.csv", "data_source": "synthetic fixture, 5m UTC, unadjusted",
