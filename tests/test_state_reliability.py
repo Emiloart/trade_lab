@@ -1,13 +1,14 @@
 import json
 import os
 
+import pandas as pd
 import pytest
 
 from trade_lab.state import StateError, StateStore
 from trade_lab.strategy import Signal
 
 SIG = Signal(
-    time=__import__("pandas").Timestamp("2026-11-18 16:10", tz="UTC"),
+    time=pd.Timestamp("2026-11-18 16:10", tz="UTC"),
     direction=1,
     entry=100.4,
     stop=98.9,
@@ -83,7 +84,9 @@ def test_failed_primary_replace_keeps_original_state(tmp_path, monkeypatch):
 
 def test_delivery_unknown_closes_day_and_is_persisted(tmp_path):
     store = StateStore(tmp_path / "state.json")
-    store.record_delivery_unknown("2026-11-18", "telegram_delivery_uncertain", SIG)
+    store.record_pending("2026-11-18", SIG, 3514, 0.18, "alert body", "run-1")
+    store.mark_delivery_unknown("2026-11-18", SIG.time.isoformat(), "telegram_delivery_uncertain")
     assert store.day_closed("2026-11-18")
     entry = store.entries("2026-11-18")[0]
     assert entry["status"] == "delivery_unknown"
+    assert "message" not in entry
