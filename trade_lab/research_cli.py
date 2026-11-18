@@ -106,10 +106,10 @@ def _load_research_csv(
     findings = validate_research_bars(
         bars, expected_interval_minutes=expected_interval_minutes
     )
-    errors = [item for item in findings if item["severity"] == "error"]
+    errors = [finding for finding in findings if finding.severity == "error"]
     if errors:
         detail = "; ".join(
-            f"{item['code']} ({item['count']}): {item['message']}" for item in errors
+            f"{finding.code} ({finding.count}): {finding.message}" for finding in errors
         )
         raise ValueError(f"{path}: historical data validation failed: {detail}")
     # Numeric conversion happens only after strict validation has accepted all rows.
