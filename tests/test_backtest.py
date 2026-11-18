@@ -3,6 +3,7 @@ import pytest
 
 from trade_lab.backtest import BacktestCosts, performance_summary, run_backtest
 from trade_lab.config import StrategyConfig
+from trade_lab.instruments import AssetClass, InstrumentSpec
 
 
 def sample_bars(exit_bar):
@@ -108,3 +109,78 @@ def test_performance_summary_reports_expectancy_and_costs():
     summary = performance_summary(trades)
     assert summary["average_r"] == pytest.approx(summary["expectancy_r"])
     assert summary["execution_costs"] > 0
+
+
+
+@pytest.mark.parametrize(
+    ("spec", "unit"),
+    [
+        (
+            InstrumentSpec(
+                symbol="AAPL",
+                asset_class=AssetClass.EQUITY,
+                quote_currency="USD",
+                tick_size=0.01,
+                tick_value=0.01,
+                tick_value_currency="USD",
+                quantity_unit="share",
+                min_quantity=1,
+                quantity_step=1,
+                max_quantity=100_000,
+            ),
+            "share",
+        ),
+        (
+            InstrumentSpec(
+                symbol="US100",
+                asset_class=AssetClass.INDEX_CFD,
+                quote_currency="USD",
+                tick_size=0.1,
+                tick_value=1.0,
+                tick_value_currency="USD",
+                quantity_unit="lot",
+                min_quantity=0.01,
+                quantity_step=0.01,
+                max_quantity=100,
+            ),
+            "lot",
+        ),
+    ],
+)
+def test_backtest_uses_instrument_specific_tick_economics(spec, unit):
+    trades = run_backtest(
+        sample_bars((101.0, 106.0, 100.0, 105.0)),
+        config(),
+        costs=BacktestCosts(
+            spread_points=0.2, slippage_points=0.1, commission_per_unit=0.01
+        ),
+        instrument=spec,
+    )
+    trade = trades.iloc[0]
+    assert trade["Symbol"] == spec.symbol
+    assert trade["Quantity_Unit"] == unit
+    assert trade["Units"] > 0
+    assert trade["Risk_Budget_$"] <= config().risk_dollars
+    assert trade["Execution_Costs_$"] > 0
+
+
+def test_instrument_backtest_requires_valid_account_currency_conversion():
+    spec = InstrumentSpec(
+        symbol="AAPL",
+        asset_class=AssetClass.EQUITY,
+        quote_currency="USD",
+        tick_size=0.01,
+        tick_value=0.01,
+        tick_value_currency="USD",
+        quantity_unit="share",
+        min_quantity=1,
+        quantity_step=1,
+        max_quantity=100_000,
+    )
+    with pytest.raises(ValueError):
+        run_backtest(
+            sample_bars((101.0, 106.0, 100.0, 105.0)),
+            config(),
+            instrument=spec,
+            value_to_account_rate=0,
+        )
