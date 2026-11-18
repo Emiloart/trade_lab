@@ -16,7 +16,7 @@ Do not solve these conditions by deleting state and immediately resuming. An emp
 
 The monitor distinguishes a missing file from an existing invalid file.
 
-- **Missing file:** treated as a first-run empty store.
+- **Missing file:** a local first run may initialize an empty store. The scheduled workflow permits bootstrap only before 10:00 New York time and only when no same-day cache key was restored. A missing primary with an existing `.bak` is an error.
 - **Malformed JSON, invalid structure, unreadable file, or unsupported version:** raises StateError; the CLI exits non-zero and refuses to continue.
 
 Recovery procedure:
@@ -29,7 +29,7 @@ Recovery procedure:
 6. Run tests and a local dry run against a copy of the restored state.
 7. Re-enable scheduled delivery only after verifying the recovered alert history and the next scheduled run.
 
-If it is impossible to determine whether an alert was delivered, reconcile Telegram history manually before resuming. Never delete a `delivery_unknown` or `delivery_pending` entry merely to make the bot run again. The system cannot prove exactly-once delivery.
+If it is impossible to determine whether an alert was delivered, reconcile Telegram history manually before resuming. Never delete a `delivery_unknown` or `delivery_pending` entry merely to make the bot run again. The system uses a checkpoint-before-send, at-most-once recovery policy for scheduled alerts. It cannot guarantee exactly-once delivery: after an interruption, an alert may require manual confirmation and may be left unsent rather than risk a duplicate.
 
 ## Actions cache appears missing or stale
 
