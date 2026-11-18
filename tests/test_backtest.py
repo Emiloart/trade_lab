@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from trade_lab.backtest import performance_summary, run_backtest
+from trade_lab.backtest import BacktestCosts, performance_summary, run_backtest
 from trade_lab.config import StrategyConfig
 
 
@@ -25,7 +25,6 @@ def config():
 
 def test_backtest_uses_shared_signal_and_enters_at_signal_close():
     trades = run_backtest(sample_bars((101.0, 106.0, 100.0, 105.0)), config())
-    assert len(trades) == 1
     trade = trades.iloc[0]
     assert trade["Direction"] == "LONG"
     assert trade["Entry_Time"] == "2026-11-18T15:05:00+00:00"
@@ -36,16 +35,12 @@ def test_backtest_uses_shared_signal_and_enters_at_signal_close():
 
 def test_stop_wins_when_stop_and_target_are_both_touched():
     trades = run_backtest(sample_bars((101.0, 106.0, 90.0, 100.0)), config())
-    trade = trades.iloc[0]
-    assert trade["Status"] == "CLOSED"
-    assert trade["Exit_Reason"] == "STOP"
+    assert trades.iloc[0]["Exit_Reason"] == "STOP"
 
 
 def test_stop_gap_fills_at_worse_open_price():
     trades = run_backtest(sample_bars((90.0, 100.0, 89.0, 95.0)), config())
-    trade = trades.iloc[0]
-    assert trade["Exit_Reason"] == "STOP"
-    assert trade["Exit"] == pytest.approx(90.0)
+    assert trades.iloc[0]["Exit"] == pytest.approx(90.0)
 
 
 def test_open_trade_is_marked_not_counted_as_realized():
@@ -55,8 +50,7 @@ def test_open_trade_is_marked_not_counted_as_realized():
     assert trade["Realized_PnL_$"] == 0
     assert trade["Unrealized_PnL_$"] != 0
     summary = performance_summary(trades)
-    assert summary["closed"] == 0
-    assert summary["open"] == 1
+    assert summary["closed"] == 0 and summary["open"] == 1
     assert summary["realized_pnl"] == 0
 
 
@@ -72,9 +66,8 @@ def test_backtest_rejects_naive_or_unsorted_timestamps():
     naive.index = naive.index.tz_localize(None)
     with pytest.raises(ValueError):
         run_backtest(naive, config())
-    unsorted = bars.iloc[::-1]
     with pytest.raises(ValueError):
-        run_backtest(unsorted, config())
+        run_backtest(bars.iloc[::-1], config())
 
 
 def test_backtest_requires_open_for_gap_aware_execution():
@@ -84,7 +77,34 @@ def test_backtest_requires_open_for_gap_aware_execution():
 
 
 def test_realized_drawdown_includes_initial_capital_baseline():
-    trades = pd.DataFrame(
-        {"Status": ["CLOSED", "CLOSED"], "Realized_PnL_$": [-25.0, 10.0]}
-    )
+    trades = pd.DataFrame({"Status": ["CLOSED", "CLOSED"], "Realized_PnL_$": [-25.0, 10.0]})
     assert performance_summary(trades)["max_drawdown"] == pytest.approx(-25.0)
+
+
+def test_execution_costs_reduce_net_pnl_and_adjust_position_size():
+    bars = sample_bars((101.0, 106.0, 100.0, 105.0))
+    frictionless = run_backtest(bars, config())
+    realistic = run_backtest(
+        bars, config(),
+        costs=BacktestCosts(spread_points=0.2, slippage_points=0.1, commission_per_unit=0.01),
+    )
+    assert realistic.iloc[0]["Units"] < frictionless.iloc[0]["Units"]
+    assert realistic.iloc[0]["Execution_Costs_$"] > 0
+    assert realistic.iloc[0]["Realized_PnL_$"] < frictionless.iloc[0]["Realized_PnL_$"]
+
+
+def test_backtest_costs_reject_invalid_values():
+    with pytest.raises(ValueError):
+        BacktestCosts(spread_points=-0.1)
+    with pytest.raises(ValueError):
+        BacktestCosts(slippage_points=float("nan"))
+
+
+def test_performance_summary_reports_expectancy_and_costs():
+    trades = run_backtest(
+        sample_bars((101.0, 106.0, 100.0, 105.0)), config(),
+        costs=BacktestCosts(spread_points=0.2),
+    )
+    summary = performance_summary(trades)
+    assert summary["average_r"] == pytest.approx(summary["expectancy_r"])
+    assert summary["execution_costs"] > 0

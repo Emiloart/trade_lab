@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
@@ -10,8 +12,29 @@ import pandas as pd
 from .config import StrategyConfig
 from .data import normalize_bars
 from .sessions import NY, in_window
-from .sizing import units_for_risk
 from .strategy import LONG, first_signal, prepare
+
+
+@dataclass(frozen=True)
+class BacktestCosts:
+    """Per-fill costs: full spread/slippage in price points, commission per unit per side."""
+
+    spread_points: float = 0.0
+    slippage_points: float = 0.0
+    commission_per_unit: float = 0.0
+
+    def __post_init__(self) -> None:
+        for name, value in (
+            ("spread_points", self.spread_points),
+            ("slippage_points", self.slippage_points),
+            ("commission_per_unit", self.commission_per_unit),
+        ):
+            if isinstance(value, bool) or not math.isfinite(value) or value < 0:
+                raise ValueError(f"{name} must be a finite non-negative number")
+
+    @property
+    def total_risk_cost_per_unit(self) -> float:
+        return self.spread_points + 2.0 * self.slippage_points + 2.0 * self.commission_per_unit
 
 
 def load_csv(path: str | Path) -> pd.DataFrame:
@@ -50,14 +73,17 @@ def run_backtest(
     bars: pd.DataFrame,
     cfg: StrategyConfig | None = None,
     start_date: date | None = None,
+    costs: BacktestCosts | None = None,
 ) -> pd.DataFrame:
-    """Simulate one first-signal trade per NY date using the shared live rule.
+    """Simulate one first-signal trade per NY date with configurable execution costs.
 
-    Signals enter at the signal bar close. Exit checks begin on the next bar,
-    within the configured session. Unclosed positions are marked to market at
-    the final in-window close and reported as OPEN, not counted as realized P&L.
+    Entry remains at signal-bar close as a documented research convention.
+    Fills incur half-spread plus adverse slippage on both sides. Commission is
+    charged per unit per side. Sizing includes modeled round-trip costs so the
+    stop-risk budget is not exceeded under these assumptions.
     """
     config = cfg or StrategyConfig()
+    execution = costs or BacktestCosts()
     if bars.empty:
         return pd.DataFrame()
     if not isinstance(bars.index, pd.DatetimeIndex) or bars.index.tz is None:
@@ -73,6 +99,7 @@ def run_backtest(
     prepared = prepare(bars, config)
     ny_dates = prepared.index.tz_convert(NY).date
     trades: list[dict[str, object]] = []
+    fill_cost = execution.spread_points / 2.0 + execution.slippage_points
 
     for day in sorted(set(ny_dates)):
         if start_date is not None and day < start_date:
@@ -83,12 +110,14 @@ def run_backtest(
 
         entry_position = prepared.index.get_loc(signal.time)
         day_positions = [
-            pos
-            for pos, bar_day in enumerate(ny_dates)
+            pos for pos, bar_day in enumerate(ny_dates)
             if bar_day == day and pos > entry_position and in_window(prepared.index[pos], config)
         ]
-        units = units_for_risk(config.risk_dollars, signal.risk_distance)
+        risk_per_unit = signal.risk_distance + execution.total_risk_cost_per_unit
+        units = config.risk_dollars / risk_per_unit
+        entry_fill = signal.entry + signal.direction * fill_cost
         exit_price: float | None = None
+        exit_fill: float | None = None
         exit_time: pd.Timestamp | None = None
         exit_reason = "OPEN_AT_SESSION_END"
         status = "OPEN"
@@ -101,6 +130,7 @@ def run_backtest(
             if outcome is None:
                 continue
             exit_price, exit_reason = outcome
+            exit_fill = exit_price - signal.direction * fill_cost
             exit_time = prepared.index[pos]
             status = "CLOSED"
             break
@@ -109,17 +139,23 @@ def run_backtest(
             last_pos = day_positions[-1]
             last_mark = float(prepared.iloc[last_pos]["Close"])
             exit_time = prepared.index[last_pos]
+            exit_fill = last_mark - signal.direction * fill_cost
 
-        if status == "CLOSED" and exit_price is not None:
-            points = (exit_price - signal.entry) * signal.direction
-            realized = points * units
-            unrealized = 0.0
-            mark_price = exit_price
+        if exit_fill is not None and last_mark is not None:
+            raw_exit = exit_price if exit_price is not None else last_mark
+            gross_pnl = (raw_exit - signal.entry) * signal.direction * units
+            commission = 2.0 * execution.commission_per_unit * units
+            net_pnl = (exit_fill - entry_fill) * signal.direction * units - commission
+            modeled_costs = gross_pnl - net_pnl
+            mark_price = float(raw_exit)
         else:
-            realized = 0.0
-            mark_price = last_mark if last_mark is not None else signal.entry
-            unrealized = (mark_price - signal.entry) * signal.direction * units
+            gross_pnl = net_pnl = modeled_costs = 0.0
+            mark_price = signal.entry
 
+        realized = net_pnl if status == "CLOSED" else 0.0
+        unrealized = net_pnl if status == "OPEN" else 0.0
+        risk_budget = units * risk_per_unit
+        r_multiple = net_pnl / risk_budget if status == "CLOSED" and risk_budget else 0.0
         trades.append(
             {
                 "Date": day.isoformat(),
@@ -127,32 +163,34 @@ def run_backtest(
                 "Exit_Time": exit_time.isoformat() if exit_time is not None else "",
                 "Direction": signal.side,
                 "Entry": signal.entry,
+                "Signal_Entry": signal.entry,
+                "Entry_Fill": entry_fill,
                 "Stop": signal.stop,
                 "Target": signal.target,
                 "Exit": exit_price if exit_price is not None else "",
+                "Exit_Fill": exit_fill if exit_fill is not None else "",
                 "Units": units,
+                "Risk_Budget_$": round(risk_budget, 2),
                 "Status": status,
                 "Exit_Reason": exit_reason,
+                "Gross_PnL_$": round(gross_pnl, 2),
+                "Execution_Costs_$": round(modeled_costs, 2),
                 "Realized_PnL_$": round(realized, 2),
                 "Unrealized_PnL_$": round(unrealized, 2),
+                "R_Multiple": round(r_multiple, 4),
                 "Mark_Price": mark_price,
             }
         )
-
     return pd.DataFrame(trades)
 
 
 def performance_summary(trades: pd.DataFrame) -> dict[str, float | int]:
-    """Summarize closed trades only; open marks are deliberately excluded."""
+    """Summarize closed trades only; open marks are excluded from realized metrics."""
     if trades.empty:
         return {
-            "trades": 0,
-            "closed": 0,
-            "open": 0,
-            "win_rate_pct": 0.0,
-            "realized_pnl": 0.0,
-            "max_drawdown": 0.0,
-            "profit_factor": 0.0,
+            "trades": 0, "closed": 0, "open": 0, "win_rate_pct": 0.0,
+            "realized_pnl": 0.0, "max_drawdown": 0.0, "profit_factor": 0.0,
+            "average_r": 0.0, "expectancy_r": 0.0, "execution_costs": 0.0,
         }
     closed = trades.loc[trades["Status"] == "CLOSED"].copy()
     pnl = closed["Realized_PnL_$"].astype(float)
@@ -164,6 +202,12 @@ def performance_summary(trades: pd.DataFrame) -> dict[str, float | int]:
     profit_factor = gross_profit / gross_loss if gross_loss else (
         float("inf") if gross_profit else 0.0
     )
+    r_values = closed["R_Multiple"].astype(float) if "R_Multiple" in closed else pd.Series(dtype=float)
+    costs_total = (
+        float(trades["Execution_Costs_$"].astype(float).sum())
+        if "Execution_Costs_$" in trades else 0.0
+    )
+    average_r = float(r_values.mean()) if len(r_values) else 0.0
     return {
         "trades": int(len(trades)),
         "closed": int(len(closed)),
@@ -172,4 +216,7 @@ def performance_summary(trades: pd.DataFrame) -> dict[str, float | int]:
         "realized_pnl": float(pnl.sum()) if len(pnl) else 0.0,
         "max_drawdown": float(drawdown.min()) if len(drawdown) else 0.0,
         "profit_factor": profit_factor,
+        "average_r": average_r,
+        "expectancy_r": average_r,
+        "execution_costs": costs_total,
     }
