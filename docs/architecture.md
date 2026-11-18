@@ -8,13 +8,13 @@ The main implementation is the `trade_lab/` package:
 
 | Module | Responsibility |
 | --- | --- |
-| `config.py` | Immutable strategy/risk configuration and environment overrides |
+| `config.py` | Immutable strategy/risk configuration and environment overrides |\n| `cache_guard.py` | Same-day cache validation and safe pre-session bootstrap |
 | `data.py` | Yahoo Finance retrieval, OHLCV normalization, and cross-instrument ratio |
 | `indicators.py` | Session VWAP, true range, and ATR |
 | `sessions.py` | New York time handling, session window, closed-bar and freshness checks |
 | `strategy.py` | VWAP pullback signal definition |
 | `sizing.py` | Risk-based unit/lot sizing and daily loss comparison |
-| `state.py` | Atomic JSON state persistence |
+| `state.py` | Validated JSON state, atomic replacement, recovery backup, and pending-delivery journal |
 | `alert.py` | Human-readable Telegram alert formatting |
 | `notify.py` | Telegram Bot API delivery |
 | `live.py` | One-run orchestration and command-line interface |
@@ -31,7 +31,7 @@ The main implementation is the `trade_lab/` package:
 8. Reject and record a setup that is too old to alert, rather than moving to a later setup that would violate the one-setup-per-day rule.
 9. Fetch NQ futures bars and calculate a price ratio at the newest timestamp shared by both instruments.
 10. Scale the QQQ-derived levels, calculate CFD lot size using configured contract assumptions, and format the alert.
-11. In dry-run mode, print the alert without sending or recording it. Otherwise send via Telegram and record the sent setup after successful delivery.
+11. In dry-run mode, print the alert without sending or recording it. In scheduled mode, persist a pending delivery first, checkpoint it to Actions cache, send via Telegram, then persist the confirmed, rejected, or uncertain outcome.
 
 ## Data flow
 
@@ -41,9 +41,9 @@ The QQQ-to-NQ conversion is a ratio, not a broker-grade instrument mapping. The 
 
 ## Persistence and consistency
 
-`StateStore` writes a local JSON file using a temporary file followed by an atomic replace. It tracks sent or missed setups and manually entered realized P&L, retaining a limited recent history. A missing file initializes a new store; an existing unreadable, malformed, structurally invalid, or unsupported-version file raises `StateError` and stops the monitor. The application no longer treats corruption as an empty history.
+`StateStore` validates the complete state structure before use and writes through a flushed temporary file followed by atomic replacement. It preserves the previous valid primary as `.bak` before every replacement, including an empty baseline before the first mutation. It tracks sent, missed, pending, and uncertain deliveries plus manually entered realized P&L. A missing primary with a backup, unreadable/malformed/invalid state, or unsupported schema raises `StateError`; none is treated as a fresh empty history. Recovery is explicit, not automatic.
 
-On GitHub Actions, the workflow restores and saves this file through date-scoped Actions cache keys and serializes scheduled runs. This is a lightweight continuity mechanism, not a transactional database. Cache behavior is not equivalent to a durable event store or a multi-writer lock. A process interruption after Telegram accepts a message but before state is saved can result in a duplicate alert on a later run.
+On GitHub Actions, `cache_guard.py` validates a same-day cache hit or permits an empty bootstrap only before the 10:00 New York session. A cache miss during the session fails closed. The scheduled workflow checkpoints a pending delivery and its backup before Telegram is called, then saves the final outcome under a later cache key. A pending delivery restored from an earlier run is converted to `delivery_unknown` and is never automatically resent. This is safer than an after-the-fact save, but Actions cache is still not a durable transactional database; loss of all same-day cache entries stops the bot rather than recovering alert history.
 
 ## Current boundaries
 
