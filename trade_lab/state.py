@@ -74,7 +74,9 @@ class StateStore:
                 if not isinstance(entry, dict):
                     raise StateError(f"Invalid entry in state file {path}: {day}")
                 status = entry.get("status")
-                if not isinstance(status, str) or status not in {"sent", "missed", "delivery_unknown"}:
+                if not isinstance(status, str) or status not in {
+                    "sent", "missed", "delivery_pending", "delivery_unknown"
+                }:
                     raise StateError(f"Invalid entry status in state file {path}: {day}")
                 side = entry.get("side")
                 if not isinstance(side, str) or side not in {"LONG", "SHORT"}:
@@ -86,16 +88,19 @@ class StateStore:
                     raise StateError(f"Invalid bar_time in state file {path}: {day}") from exc
                 if parsed_time.tzinfo is None or parsed_time.utcoffset() is None:
                     raise StateError(f"Naive bar_time in state file {path}: {day}")
-                if status == "sent":
+                if status in {"sent", "delivery_pending", "delivery_unknown"}:
                     for field in ("entry", "lots"):
                         value = entry.get(field)
-                        if (
-                            not _finite_number(value)
-                            or value <= 0
-                        ):
+                        if not _finite_number(value) or value <= 0:
                             raise StateError(f"Invalid {field} in state file {path}: {day}")
-                elif not isinstance(entry.get("reason"), str) or not entry["reason"]:
-                    raise StateError(f"Missing entry reason in state file {path}: {day}")
+                if status in {"missed", "delivery_unknown"}:
+                    if not isinstance(entry.get("reason"), str) or not entry["reason"]:
+                        raise StateError(f"Missing entry reason in state file {path}: {day}")
+                if status == "delivery_pending":
+                    if not isinstance(entry.get("message"), str) or not entry["message"]:
+                        raise StateError(f"Missing pending message in state file {path}: {day}")
+                    if not isinstance(entry.get("run_id"), str) or not entry["run_id"]:
+                        raise StateError(f"Missing pending run identifier in state file {path}: {day}")
         return data
 
     def _load(self, require_existing: bool = False) -> dict[str, Any]:
@@ -110,7 +115,7 @@ class StateStore:
             if require_existing:
                 raise StateError(f"Expected cached state file is missing: {self.path}") from exc
             return {"version": SCHEMA_VERSION, "days": {}}
-        except OSError as exc:
+        except (OSError, UnicodeError) as exc:
             raise StateError(
                 f"State file exists but cannot be read: {self.path}. "
                 "Preserve a copy and repair or restore it before resuming."
@@ -183,6 +188,22 @@ class StateStore:
         """Require a real primary file and validate it before using a cache hit."""
         self._load(require_existing=True)
 
+    def mark_interrupted_pending(self) -> int:
+        """Convert persisted pending deliveries to unknown after a prior run."""
+        data = self._load()
+        changed = 0
+        for record in data["days"].values():
+            for entry in record["entries"]:
+                if entry["status"] == "delivery_pending":
+                    entry["status"] = "delivery_unknown"
+                    entry["reason"] = "previous_run_interrupted"
+                    entry.pop("message", None)
+                    entry.pop("run_id", None)
+                    changed += 1
+        if changed:
+            self._save(data)
+        return changed
+
     @staticmethod
     def _day(data: dict[str, Any], day: str) -> dict[str, Any]:
         return data["days"].setdefault(day, {"entries": [], "realized_pnl": 0.0})
@@ -196,7 +217,76 @@ class StateStore:
     def entries(self, day: str) -> list[dict[str, Any]]:
         return list(self._load()["days"].get(day, {}).get("entries", []))
 
+    def record_pending(
+        self, day: str, sig: Signal, entry: float, lots: float, message: str, run_id: str
+    ) -> None:
+        data = self._load()
+        self._day(data, day)["entries"].append(
+            {
+                "status": "delivery_pending",
+                "side": sig.side,
+                "bar_time": sig.time.isoformat(),
+                "entry": round(entry, 2),
+                "lots": lots,
+                "message": message,
+                "run_id": run_id,
+            }
+        )
+        self._save(data)
+
+    def pending_delivery(self, run_id: str) -> tuple[str, dict[str, Any]] | None:
+        data = self._load()
+        for day, record in data["days"].items():
+            for entry in record["entries"]:
+                if entry["status"] == "delivery_pending" and entry["run_id"] == run_id:
+                    return day, dict(entry)
+        return None
+
+    def mark_sent(self, day: str, bar_time: str) -> None:
+        data = self._load()
+        record = data["days"].get(day)
+        if record is None:
+            raise StateError(f"Pending delivery day is missing from state: {day}")
+        for entry in record["entries"]:
+            if entry["status"] == "delivery_pending" and entry["bar_time"] == bar_time:
+                entry["status"] = "sent"
+                entry.pop("message", None)
+                entry.pop("run_id", None)
+                self._save(data)
+                return
+        raise StateError(f"Pending delivery is missing from state: {day} {bar_time}")
+
+    def mark_delivery_unknown(self, day: str, bar_time: str, reason: str) -> None:
+        data = self._load()
+        record = data["days"].get(day)
+        if record is None:
+            raise StateError(f"Pending delivery day is missing from state: {day}")
+        for entry in record["entries"]:
+            if entry["status"] == "delivery_pending" and entry["bar_time"] == bar_time:
+                entry["status"] = "delivery_unknown"
+                entry["reason"] = reason
+                entry.pop("message", None)
+                entry.pop("run_id", None)
+                self._save(data)
+                return
+        raise StateError(f"Pending delivery is missing from state: {day} {bar_time}")
+
+    def clear_pending(self, day: str, bar_time: str) -> None:
+        """Clear only an explicitly rejected request so a later run can retry."""
+        data = self._load()
+        record = data["days"].get(day)
+        if record is None:
+            raise StateError(f"Pending delivery day is missing from state: {day}")
+        record["entries"] = [
+            entry for entry in record["entries"]
+            if not (entry["status"] == "delivery_pending" and entry["bar_time"] == bar_time)
+        ]
+        if not record["entries"] and record["realized_pnl"] == 0:
+            del data["days"][day]
+        self._save(data)
+
     def record_sent(self, day: str, sig: Signal, entry: float, lots: float) -> None:
+        """Compatibility helper for callers recording a confirmed delivery."""
         data = self._load()
         self._day(data, day)["entries"].append(
             {
@@ -211,10 +301,6 @@ class StateStore:
 
     def record_missed(self, day: str, reason: str, sig: Signal) -> None:
         self._record_non_sent(day, reason, sig, "missed")
-
-    def record_delivery_unknown(self, day: str, reason: str, sig: Signal) -> None:
-        """Close the day when Telegram may have accepted a timed-out request."""
-        self._record_non_sent(day, reason, sig, "delivery_unknown")
 
     def _record_non_sent(self, day: str, reason: str, sig: Signal, status: str) -> None:
         data = self._load()
