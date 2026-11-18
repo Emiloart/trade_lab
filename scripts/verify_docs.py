@@ -192,6 +192,19 @@ def main() -> int:
                 f"code={implemented_default}"
             )
 
+    live_source = (ROOT / "trade_lab" / "live.py").read_text(encoding="utf-8")
+    state_default_match = re.search(
+        r'os\\.environ\\.get\\("STATE_FILE",\\s*"([^"]+)"', live_source
+    )
+    if not state_default_match:
+        fail("could not locate the STATE_FILE fallback in trade_lab/live.py")
+    documented_state_default = table_defaults["STATE_FILE"].strip().strip("`")
+    if documented_state_default != state_default_match.group(1):
+        fail(
+            "STATE_FILE default mismatch: "
+            f"docs={documented_state_default}, code={state_default_match.group(1)}"
+        )
+
     # Workflow-injected variables and secret names must also be explained.
     workflow_files = sorted((ROOT / ".github" / "workflows").glob("*.yml"))
     for workflow in workflow_files:
