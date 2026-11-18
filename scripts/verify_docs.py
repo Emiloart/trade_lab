@@ -135,12 +135,12 @@ def main() -> int:
             except (ValueError, TypeError):
                 continue
     config_mapping = dict(
-        re.findall(r'^\\s*"([A-Z][A-Z0-9_]*)":\\s*"([^"]+)"', config_source, re.MULTILINE)
+        re.findall(r'^\s*"([A-Z][A-Z0-9_]*)":\s*"([^"]+)"', config_source, re.MULTILINE)
     )
     table_defaults = {
         name: value
         for name, value in re.findall(
-            r"^\\| `([A-Z][A-Z0-9_]*)` \\| ([^|]+) \\|",
+            r"^\| `([A-Z][A-Z0-9_]*)` \| ([^|]+) \|",
             texts[ROOT / "docs" / "configuration.md"],
             re.MULTILINE,
         )
