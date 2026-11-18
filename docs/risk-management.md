@@ -44,8 +44,8 @@ There is no broker fill or account-balance integration. The system cannot know a
 - **Reference-price risk:** QQQ/NQ scaling is an approximation; broker CFD quotes and contract specifications can differ.
 - **Execution risk:** spread, commission, slippage, gaps, rejected orders, and partial fills are not modeled by the alert service.
 - **Data risk:** Yahoo Finance availability, timestamps, volume, and intraday history may be delayed, incomplete, or revised.
-- **Duplicate-alert risk:** Telegram delivery may succeed immediately before a process interruption prevents state persistence.
-- **State risk:** JSON plus Actions cache is not transactional or designed for concurrent independent writers. Existing corrupt or unsupported state now stops the monitor rather than resetting alert history, but the cache still cannot guarantee exactly-once delivery.
+- **Delivery ambiguity:** a timeout, connection interruption, malformed response, or server error may occur after Telegram has accepted a message. The system records `delivery_unknown` and does not retry automatically.
+- **State/cache risk:** the scheduled workflow checkpoints pending intent before Telegram delivery and quarantines an interrupted attempt, but Actions cache is not a durable transactional database. A cache miss during the session fails closed and requires manual reconciliation.
 - **Strategy risk:** the historical evidence currently available is too limited to establish robustness or profitability.
 
 Validate sizing against the exact broker symbol specification and use a non-live environment until independent testing and operational controls are complete.
