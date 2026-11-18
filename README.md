@@ -11,6 +11,12 @@ A Python market-monitoring and Telegram alerting system for a VWAP pullback stra
 - Telegram alerting with validated, checkpointed state persistence.
 - Pytest, Ruff, and documentation verification in GitHub Actions.
 
+## Architecture direction
+
+Instrument economics and broker execution are separate interfaces. The current foundation supports equity, ETF, index CFD, FX, futures, crypto, and other asset-class identifiers; each tradable instrument supplies its own tick economics and quantity constraints. Broker integrations implement a shared asynchronous adapter contract rather than being embedded in strategy logic.
+
+Execution modes are explicit: disabled, paper, demo, and live. Broker submission is blocked in disabled/paper modes, demo mode rejects live accounts, and live mode is disabled unless separately enabled. These are foundations only; concrete broker adapters and automated order execution are not implemented.
+
 ## Important limitations
 
 - Zero-cost backtests remain the default for backwards compatibility and are not realistic performance estimates.
