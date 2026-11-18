@@ -118,7 +118,8 @@ Amounts accumulate against the current New York trading date.
 
 ```bash
 python -m pytest
-ruff check trade_lab tests\npython scripts/verify_docs.py
+ruff check trade_lab tests
+python scripts/verify_docs.py
 ```
 
 ## Backtesting
