@@ -22,11 +22,11 @@ The monitor distinguishes a missing file from an existing invalid file.
 Recovery procedure:
 
 1. Disable the scheduled workflow (or temporarily remove its schedule trigger) while preserving the repository and Actions history.
-2. Download or copy the affected state artifact/file before making changes.
-3. Inspect the JSON and compare it with the last known-good Actions cache/run and Telegram message history.
-4. Restore the most recent known-good state, or repair the JSON without removing valid day entries or realized P&L.
-5. Validate that the file is JSON with schema version 1 and a days object. Keep a backup of the original.
-6. Run tests and a local dry run against a copy of the restored state.
+2. Preserve any locally available primary and backup files. GitHub Actions cache entries are not normal workflow artifacts; inspect cached state through a temporary, reviewed diagnostic workflow that restores the cache without running the alert-delivery step.
+3. Compare the primary, backup, last successful workflow run, and Telegram history. The backup is the previous state, not necessarily the latest state.
+4. Restore the best-supported known-good copy to the primary path, keeping untouched copies of both originals.
+5. Validate schema version 1, canonical New York date keys, exact day-record and entry fields, finite P&L/price/lot values, and timezone-aware bar timestamps. Do not reconstruct an empty history unless Telegram history proves no alert was sent.
+6. Run the state/cache validation tests and a dry run against a copy. A dry run alone is not proof that the restored state was loaded.
 7. Re-enable scheduled delivery only after verifying the recovered alert history and the next scheduled run.
 
 If it is impossible to determine whether an alert was delivered, reconcile Telegram history manually before resuming. Never delete a `delivery_unknown` or `delivery_pending` entry merely to make the bot run again. The scheduled system uses a checkpoint-before-send, at-most-once recovery policy for pending alerts. It cannot guarantee exactly-once delivery: after an interruption, an alert may require manual confirmation and may be left unsent rather than risk a duplicate.
