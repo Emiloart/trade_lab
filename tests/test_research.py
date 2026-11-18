@@ -131,7 +131,7 @@ def test_multi_instrument_research_uses_each_symbols_costs_and_records_provenanc
     )
     selected = result.loc[result["role"] == "selected_test"]
     assert set(selected["symbol"]) == {"ETF_A", "ETF_B"}
-    assert dict(zip(selected["symbol"], selected["spread_points"])) == {
+    assert dict(zip(selected["symbol"], selected["spread_points"], strict=True)) == {
         "ETF_A": 0.02, "ETF_B": 0.25
     }
     assert selected["config_hash"].str.len().eq(64).all()
