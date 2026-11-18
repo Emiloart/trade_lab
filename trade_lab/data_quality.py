@@ -41,6 +41,11 @@ def validate_research_bars(
         return [DataFinding("invalid_index", "error", "Index must be a DatetimeIndex")]
     if bars.index.tz is None:
         return [DataFinding("naive_timestamps", "error", "Timestamps must include a timezone")]
+    if bars.index.isna().any():
+        findings.append(DataFinding(
+            "missing_timestamps", "error", "Datetime values cannot be missing",
+            int(bars.index.isna().sum()),
+        ))
     if bars.index.has_duplicates:
         findings.append(DataFinding(
             "duplicate_timestamps", "error", "Duplicate timestamps are not permitted",
