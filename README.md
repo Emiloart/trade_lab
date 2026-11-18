@@ -82,6 +82,7 @@ The command writes the walk-forward report and its reproducibility artifacts. Co
 - [Backtesting](docs/backtesting.md) — historical execution model and cost assumptions.
 - [Research methodology](docs/research.md) — experiment design, walk-forward evaluation, and interpretation.
 - [Research CLI](docs/research_cli.md) — configuration format and command usage.
+- [Instrument calibration](docs/instrument-calibration.md) — broker contract inputs and risk-sizing calibration.
 
 ## Development checks
 
