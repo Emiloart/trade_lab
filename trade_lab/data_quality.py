@@ -33,7 +33,9 @@ def validate_research_bars(
     findings: list[DataFinding] = []
     missing = [column for column in OHLCV if column not in bars.columns]
     if missing:
-        return [DataFinding("missing_columns", "error", f"Missing columns: {missing}", len(missing))]
+        return [
+            DataFinding("missing_columns", "error", f"Missing columns: {missing}", len(missing))
+        ]
 
     if not isinstance(bars.index, pd.DatetimeIndex):
         return [DataFinding("invalid_index", "error", "Index must be a DatetimeIndex")]
@@ -101,7 +103,8 @@ def validate_research_bars(
             if gaps.any():
                 findings.append(DataFinding(
                     "intraday_gaps", "warning",
-                    "Unexpected intraday timestamp gaps detected; verify against the venue calendar",
+                    "Unexpected intraday timestamp gaps detected; "
+                    "verify against the venue calendar",
                     int(gaps.sum()),
                 ))
 
