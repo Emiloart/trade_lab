@@ -45,7 +45,7 @@ class StateStore:
         if not isinstance(data, dict):
             raise StateError(f"Invalid state structure in {path}: expected an object")
         version = data.get("version")
-        if isinstance(version, bool) or version != SCHEMA_VERSION:
+        if isinstance(version, bool) or not isinstance(version, int) or version != SCHEMA_VERSION:
             raise StateError(
                 f"Unsupported state schema in {path}: "
                 f"expected version {SCHEMA_VERSION}, got {version!r}"
@@ -174,7 +174,7 @@ class StateStore:
                 # Even the first mutation needs a recovery marker: if the
                 # primary is later lost, an empty install must not be assumed.
                 previous = (
-                    json.dumps({"version": SCHEMA_VERSION, "days": {}}, sort_keys=True) + "\\n"
+                    json.dumps({"version": SCHEMA_VERSION, "days": {}}, sort_keys=True) + "\n"
                 ).encode()
             self._atomic_write(self.backup_path, previous)
             self._atomic_write(self.path, payload)
@@ -285,10 +285,13 @@ class StateStore:
         record = data["days"].get(day)
         if record is None:
             raise StateError(f"Pending delivery day is missing from state: {day}")
+        original_count = len(record["entries"])
         record["entries"] = [
             entry for entry in record["entries"]
             if not (entry["status"] == "delivery_pending" and entry["bar_time"] == bar_time)
         ]
+        if len(record["entries"]) == original_count:
+            raise StateError(f"Pending delivery is missing from state: {day} {bar_time}")
         if not record["entries"] and record["realized_pnl"] == 0:
             del data["days"][day]
         self._save(data)
