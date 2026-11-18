@@ -29,7 +29,7 @@ The canonical implementation is `trade_lab.strategy`, used by both live monitori
 - Long stop/target = entry − risk / entry + risk × reward/risk.
 - Short stop/target = entry + risk / entry − risk × reward/risk.
 
-Defaults are ATR period 14, stop multiplier 1.5, reward/risk 1.3, and VWAP tolerance 0.001. Configuration is shared through `StrategyConfig`; no backtest-specific signal constants are maintained.
+Defaults are ATR period 14, stop multiplier 1.5, reward/risk 1.3, and VWAP tolerance 0.001. Signal configuration is defined by `StrategyParameters`; account limits live in `AccountRiskConfig`. The live monitor retains `StrategyConfig` as a backwards-compatible combined adapter. No backtest-specific signal constants are maintained.
 
 ## Signal selection
 

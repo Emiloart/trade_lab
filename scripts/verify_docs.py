@@ -167,17 +167,19 @@ def main() -> int:
         )
 
     config_tree = ast.parse(config_source)
-    strategy_class = next(
-        node for node in config_tree.body
-        if isinstance(node, ast.ClassDef) and node.name == "StrategyConfig"
-    )
+    config_classes = {
+        node.name: node for node in config_tree.body
+        if isinstance(node, ast.ClassDef)
+        and node.name in {"StrategyConfig", "StrategyParameters"}
+    }
     defaults: dict[str, object] = {}
-    for node in strategy_class.body:
-        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-            try:
-                defaults[node.target.id] = ast.literal_eval(node.value)
-            except (ValueError, TypeError):
-                continue
+    for class_name in ("StrategyParameters", "StrategyConfig"):
+        for node in config_classes[class_name].body:
+            if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+                try:
+                    defaults[node.target.id] = ast.literal_eval(node.value)
+                except (ValueError, TypeError):
+                    continue
     config_mapping = dict(
         re.findall(r'^\s*"([A-Z][A-Z0-9_]*)":\s*"([^"]+)"', config_source, re.MULTILINE)
     )

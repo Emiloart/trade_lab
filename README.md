@@ -66,7 +66,7 @@ python backtests/vwap_backtest.py
 python backtests/recent_backtest.py
 ```
 
-See [Backtesting](docs/backtesting.md) for execution-cost assumptions and interpretation.
+See [Backtesting](docs/backtesting.md) for execution-cost assumptions and interpretation, and [Research](docs/research.md) for reclaim-quality and walk-forward evaluation.
 
 ## Tests and lint
 

@@ -8,7 +8,7 @@ The maintained implementation is the `trade_lab/` package:
 
 | Module | Responsibility |
 | --- | --- |
-| `config.py` | Immutable strategy/risk configuration and environment overrides |
+| `config.py` | Instrument-independent strategy parameters, account risk, and legacy live configuration |
 | `cache_guard.py` | Same-day cache validation and safe pre-session bootstrap |
 | `data.py` | Yahoo Finance retrieval, OHLCV normalization, and cross-instrument ratio |
 | `market_data.py` | Provider-neutral historical/live market-data contract |
@@ -17,7 +17,7 @@ The maintained implementation is the `trade_lab/` package:
 | `indicators.py` | Session VWAP, true range, and ATR |
 | `sessions.py` | New York time handling, session window, closed-bar and freshness checks |
 | `strategy.py` | Canonical VWAP pullback signal definition |
-| `backtest.py` | Historical execution simulation using the canonical strategy functions |
+| `backtest.py` | Historical execution simulation using the canonical strategy functions |\n| `research.py` | Reclaim-outcome measurement and chronological multi-instrument walk-forward evaluation |
 | `sizing.py` | Risk-based unit/lot sizing and daily loss comparison |
 | `state.py` | Validated JSON state, atomic replacement, recovery backup, and pending-delivery journal |
 | `alert.py` | Human-readable Telegram alert formatting |
@@ -26,7 +26,7 @@ The maintained implementation is the `trade_lab/` package:
 
 ## Strategy parity
 
-Live monitoring and historical simulation share `strategy.prepare()`, `strategy.first_signal()`, `StrategyConfig`, indicator functions, New York session handling, and unit-risk sizing. The historical execution layer separately defines candle fill assumptions; it does not reimplement signal rules. The two legacy VWAP entry points are thin wrappers around this layer.
+Live monitoring and historical simulation share `strategy.prepare()`, `strategy.first_signal()`, `StrategyParameters`, indicator functions, New York session handling, and unit-risk sizing. `AccountRiskConfig` is separate; `StrategyConfig` remains a legacy combined adapter for the live monitor. The historical execution layer separately defines candle fill assumptions; it does not reimplement signal rules. The two legacy VWAP entry points are thin wrappers around this layer.
 
 ## Live and backtest data flow
 
