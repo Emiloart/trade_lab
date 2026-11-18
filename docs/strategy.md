@@ -63,7 +63,7 @@ A target crossed by a later bar's open fills at that open (price improvement).
 When a bar's high/low touches both stop and target and OHLC cannot establish
 which traded first, the stop is assumed first. This is intentionally conservative.
 
-These are static bar-based assumptions. They do not model quote-level bid/ask
+The input OHLC series is treated as a reference-price series for this approximation;\nif a provider supplies last-trade or one-sided bid/ask bars, the half-spread\nmodel is not an exact reconstruction of executable quotes.\n\nThese are static bar-based assumptions. They do not model quote-level bid/ask
 paths, variable spread, queue position, partial fills, latency, market impact,
 financing, or broker-specific order handling. Signal quality is reported
 separately as `signal_expectancy_r`; `expectancy_r` is net executable-trade
