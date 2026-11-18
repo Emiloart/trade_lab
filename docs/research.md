@@ -154,3 +154,61 @@ This remains a static OHLC simulation, not a fill guarantee. It does not model
 variable quote spreads, latency, market impact, partial fills, queue priority,
 financing, or broker-specific execution rules. Validate assumptions against
 venue-specific tick or quote data before drawing conclusions.
+
+## Statistical robustness protocol
+
+Walk-forward research applies explicit sample-size gates and uncertainty estimates
+to candidate validation, selected test windows, and the optional final holdout.
+The CLI defaults to 30 closed trades in validation and 30 in test/holdout. These
+are protocol defaults, not universal guarantees of statistical power; choose
+larger minimums when the strategy's expected effect size or dependence structure
+requires them. A result below either minimum is reported as rejected rather than
+silently treated as evidence.
+
+Expectancy and win-rate intervals use a moving-block bootstrap over New York
+trading dates. The default block length is five sessions and the default is
+2,000 resamples. Resampling contiguous date blocks preserves some short-range
+serial dependence that an IID trade bootstrap would destroy. A single observed
+trading date does not produce an interval. The interval is an empirical
+uncertainty estimate conditional on the supplied history and block length; it
+is not a probability that future returns will fall inside the interval.
+
+Variant selection uses the lower bound of a Bonferroni-adjusted expectancy
+interval. The family size is the number of variants compared for that symbol
+and window. This controls family-wise error conservatively under the specified
+comparison family; it does not correct for unrecorded experiments, repeated
+researcher decisions, or dependence across symbols and overlapping windows.
+Keep a complete candidate universe and do not add variants after seeing the
+holdout.
+
+Set `sensitivity_group` on each variant to identify a local parameter
+neighborhood that should be compared together. The report records the group's
+variant count, minimum, median, and maximum validation expectancy, and the
+share of variants with positive expectancy. These are sensitivity diagnostics,
+not an optimizer and not proof that every parameter combination in a continuous
+space has been tested. Define groups before reviewing their results.
+
+Execution-cost stress tests rerun the selected configuration with every
+configured cost component scaled together. The default scenarios are 1.0x,
+1.5x, and 2.0x the supplied spread, slippage, and commission. The maximum
+configured multiplier is an acceptance gate: the selected test and final
+holdout must still meet the minimum trade count and have a positive adjusted
+expectancy lower bound at that stress level. This is a deterministic scenario
+analysis, not a forecast of future transaction costs.
+
+A selected test or final holdout row is marked `ACCEPT` only when all of the
+following are true:
+
+1. The selected variant met the minimum validation trade count.
+2. The evaluation period met the minimum closed-trade count.
+3. The family-adjusted (validation) or unadjusted (test/holdout) block-bootstrap
+   expectancy lower bound is positive.
+4. The maximum configured transaction-cost stress scenario met the minimum
+   trade count and retained a positive expectancy lower bound.
+
+Otherwise the row is marked `REJECT` with machine-readable reason codes.
+Acceptance means only that the configured historical protocol did not reject
+the candidate. It is not evidence of profitability, future stability, or
+readiness for live deployment. Preserve the final holdout as a one-time
+confirmation set; do not tune parameters, filters, costs, bootstrap settings,
+or acceptance thresholds against it.
