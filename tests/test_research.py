@@ -83,3 +83,37 @@ def test_research_emits_candidates_and_separate_selected_test_rows():
     assert len(selected) == 3
     assert set(selected["selected_on"]) == {"validation_expectancy_r"}
     assert selected["test_closed"].notna().all()
+
+
+def test_reclaim_outcomes_measure_forward_excursion_in_r():
+    from trade_lab.research import measure_reclaim_outcomes
+
+    index = pd.date_range("2026-11-18 15:00", periods=4, freq="5min", tz="UTC")
+    prepared = pd.DataFrame(
+        {
+            "Open": [100.0, 101.0, 101.2, 101.4],
+            "High": [101.2, 102.0, 102.5, 102.0],
+            "Low": [99.9, 100.8, 101.0, 101.1],
+            "Close": [101.0, 101.5, 102.0, 101.8],
+            "Volume": [1000.0] * 4,
+            "VWAP": [100.0] * 4,
+            "ATR": [1.0] * 4,
+            "ATR_PCT": [1.0] * 4,
+            "VWAP_SLOPE_ATR": [0.0] * 4,
+        },
+        index=index,
+    )
+    outcomes = measure_reclaim_outcomes(prepared, StrategyConfig(atr_stop_mult=1.0), (2,))
+    assert len(outcomes) == 2  # candidates at bars 0 and 1 have a complete 2-bar horizon
+    first = outcomes.iloc[0]
+    assert first["direction"] == "LONG"
+    assert first["mfe_r"] == pytest.approx(2.5)
+    assert first["mae_r"] == pytest.approx(0.0)
+    assert first["follow_through_r"] == pytest.approx(1.0)
+
+
+def test_reclaim_outcomes_reject_invalid_horizons():
+    from trade_lab.research import measure_reclaim_outcomes
+
+    with pytest.raises(ValueError, match="positive integers"):
+        measure_reclaim_outcomes(pd.DataFrame(), StrategyConfig(), (0,))

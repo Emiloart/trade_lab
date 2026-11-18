@@ -15,6 +15,8 @@ import pandas as pd
 from .backtest import BacktestCosts, performance_summary, run_backtest
 from .config import AccountRiskConfig, StrategyParameters
 from .instruments import InstrumentSpec
+from .sessions import NY, in_window
+from .strategy import Signal, signal_for_bar
 
 
 @dataclass(frozen=True)
@@ -176,3 +178,79 @@ def run_walk_forward_research(
                 **{f"test_{key}": value for key, value in test.items()},
             })
     return pd.DataFrame(output)
+
+
+
+def measure_reclaim_outcomes(
+    prepared: pd.DataFrame,
+    config: StrategyParameters,
+    horizons_bars: tuple[int, ...] = (3, 6, 12),
+) -> pd.DataFrame:
+    """Measure forward excursion after every qualifying reclaim candidate.
+
+    Outcomes are normalized by the signal's initial stop distance (R). Only
+    complete horizons contained within the same New York session date are
+    included. This is a descriptive label study, not a trade simulation.
+    """
+    if not horizons_bars or any(
+        isinstance(horizon, bool) or not isinstance(horizon, int) or horizon < 1
+        for horizon in horizons_bars
+    ):
+        raise ValueError("horizons_bars must contain positive integers")
+    if len(set(horizons_bars)) != len(horizons_bars):
+        raise ValueError("horizons_bars must not contain duplicates")
+    if not isinstance(prepared.index, pd.DatetimeIndex) or prepared.index.tz is None:
+        raise ValueError("prepared bars require a timezone-aware DatetimeIndex")
+    if prepared.index.has_duplicates or not prepared.index.is_monotonic_increasing:
+        raise ValueError("prepared bars must be sorted with unique timestamps")
+
+    ny_dates = prepared.index.tz_convert(NY).date
+    rows: list[dict[str, object]] = []
+    for position, (stamp, bar) in enumerate(prepared.iterrows()):
+        if not in_window(stamp, config):
+            continue
+        signal: Signal | None = signal_for_bar(stamp, bar, config)
+        if signal is None:
+            continue
+        for horizon in horizons_bars:
+            end_position = position + horizon
+            if end_position >= len(prepared):
+                continue
+            if ny_dates[end_position] != ny_dates[position]:
+                continue
+            future = prepared.iloc[position + 1 : end_position + 1]
+            direction = signal.direction
+            favorable = (
+                future["High"].astype(float) - signal.entry
+                if direction == 1
+                else signal.entry - future["Low"].astype(float)
+            )
+            adverse = (
+                signal.entry - future["Low"].astype(float)
+                if direction == 1
+                else future["High"].astype(float) - signal.entry
+            )
+            rows.append(
+                {
+                    "signal_time": stamp.isoformat(),
+                    "direction": signal.side,
+                    "entry": signal.entry,
+                    "risk_distance": signal.risk_distance,
+                    "horizon_bars": horizon,
+                    "horizon_end_time": future.index[-1].isoformat(),
+                    "follow_through_r": (
+                        (float(future["Close"].iloc[-1]) - signal.entry)
+                        * direction
+                        / signal.risk_distance
+                    ),
+                    "mfe_r": max(0.0, float(favorable.max())) / signal.risk_distance,
+                    "mae_r": max(0.0, float(adverse.max())) / signal.risk_distance,
+                }
+            )
+    return pd.DataFrame(
+        rows,
+        columns=[
+            "signal_time", "direction", "entry", "risk_distance", "horizon_bars",
+            "horizon_end_time", "follow_through_r", "mfe_r", "mae_r",
+        ],
+    )

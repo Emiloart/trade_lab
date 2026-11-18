@@ -16,6 +16,16 @@ disabled by default. Pullback depth is measured in ATR units; directional VWAP
 slope is normalized by ATR; ATR percentage is ATR divided by absolute close.
 They are candidate filters, not established improvements.
 
+## Reclaim quality study
+
+Use `measure_reclaim_outcomes()` on prepared bars to measure every qualifying
+reclaim candidate's subsequent follow-through, maximum favorable excursion
+(MFE), and maximum adverse excursion (MAE) at fixed bar horizons. Outcomes are
+normalized by the initial stop distance in R and horizons are restricted to
+the same New York session date. This makes reclaim quality measurable without
+confusing candidate outcomes with the strategy's one-trade-per-day execution
+rule. Choose horizons before examining results; do not tune on final holdout data.
+
 ## Walk-forward research
 
 Use `trade_lab.research.run_walk_forward_research` with symbol-keyed OHLCV
