@@ -165,11 +165,13 @@ larger minimums when the strategy's expected effect size or dependence structure
 requires them. A result below either minimum is reported as rejected rather than
 silently treated as evidence.
 
-Expectancy and win-rate intervals use a moving-block bootstrap over New York
-trading dates. The default block length is five sessions and the default is
-2,000 resamples. Resampling contiguous date blocks preserves some short-range
-serial dependence that an IID trade bootstrap would destroy. A single observed
-trading date does not produce an interval. The interval is an empirical
+Expectancy and win-rate intervals use a moving-block bootstrap over the ordered
+sequence of trade-bearing New York dates. The default block length is five
+observed trade dates and the default is 2,000 resamples. Resampling contiguous
+date blocks preserves some short-range serial dependence that an IID trade
+bootstrap would destroy; dates without a closed trade are not inserted as
+zero-return observations. A single observed trade date does not produce an
+interval. The interval is an empirical
 uncertainty estimate conditional on the supplied history and block length; it
 is not a probability that future returns will fall inside the interval.
 
@@ -200,11 +202,11 @@ A selected test or final holdout row is marked `ACCEPT` only when all of the
 following are true:
 
 1. The selected variant met the minimum validation trade count.
-2. The evaluation period met the minimum closed-trade count.
-3. The family-adjusted (validation) or unadjusted (test/holdout) block-bootstrap
-   expectancy lower bound is positive.
+2. The Bonferroni-adjusted validation expectancy lower bound is positive.
+3. The test or holdout period met the minimum closed-trade count and its
+   unadjusted block-bootstrap expectancy lower bound is positive.
 4. The maximum configured transaction-cost stress scenario met the minimum
-   trade count and retained a positive expectancy lower bound.
+   trade count and retained a positive unadjusted expectancy lower bound.
 
 Otherwise the row is marked `REJECT` with machine-readable reason codes.
 Acceptance means only that the configured historical protocol did not reject
