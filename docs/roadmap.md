@@ -8,11 +8,13 @@ This roadmap reflects the current state of the repository and the proposed evolu
 - New York timezone-aware session handling and completed-bar filtering.
 - Validated atomic JSON state, recovery backup, same-day cache guard, and checkpointed Telegram delivery.
 - Pytest and Ruff CI workflow.
-- Review and resolve outstanding PR/CI findings before merging or enabling scheduled alerts.\n- Establish and maintain automated documentation contract verification.
+- Review and resolve outstanding PR/CI findings before merging or enabling scheduled alerts.
+- Establish and maintain automated documentation contract verification.
 
 ## M1 — Documentation and operational clarity
 
-- Document architecture, strategy, risk assumptions, data sources, configuration, operations, and development.\n- Verify documented commands, environment variables, CLI options, package modules, and workflow files against repository contents in CI.
+- Document architecture, strategy, risk assumptions, data sources, configuration, operations, and development.
+- Verify documented commands, environment variables, CLI options, package modules, and workflow files against repository contents in CI.
 - Replace stale README claims and make the project boundary explicit.
 - Record known limitations and distinguish implemented behavior from planned work.
 
