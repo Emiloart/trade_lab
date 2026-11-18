@@ -92,7 +92,11 @@ class OrderRequest:
     def __post_init__(self) -> None:
         if not self.client_order_id.strip() or not self.symbol.strip():
             raise ValueError("client_order_id and symbol cannot be empty")
-        if isinstance(self.quantity, bool) or not math.isfinite(self.quantity) or self.quantity <= 0:
+        if (
+            isinstance(self.quantity, bool)
+            or not math.isfinite(self.quantity)
+            or self.quantity <= 0
+        ):
             raise ValueError("quantity must be a finite positive number")
         for name in ("stop_loss", "take_profit", "limit_price"):
             value = getattr(self, name)
