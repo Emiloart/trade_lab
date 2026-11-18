@@ -51,3 +51,10 @@ def test_intraday_gap_is_warning_not_automatic_rejection():
     findings = validate_research_bars(frame, expected_interval_minutes=5)
     assert not has_errors(findings)
     assert any(finding.code == "intraday_gaps" for finding in findings)
+
+
+def test_missing_timestamps_are_errors():
+    frame = bars()
+    frame.index = pd.DatetimeIndex([frame.index[0], pd.NaT, frame.index[2]])
+    findings = validate_research_bars(frame)
+    assert "missing_timestamps" in {finding.code for finding in findings}
