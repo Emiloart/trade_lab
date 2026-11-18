@@ -59,9 +59,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--state-file", default=".state/state.json")
     args = parser.parse_args(argv)
 
-    cfg = StrategyConfig.from_env()
-    store = StateStore(Path(args.state_file))
     try:
+        cfg = StrategyConfig.from_env()
+        store = StateStore(Path(args.state_file))
         result = guard_cache(
             store,
             args.matched_key or None,
