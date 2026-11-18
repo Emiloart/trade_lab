@@ -20,10 +20,10 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: pip
@@ -43,7 +43,7 @@ jobs:
 
       - name: Restore latest state for the New York trading day
         id: restore_state
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: |
             .state/state.json
@@ -81,7 +81,7 @@ jobs:
       # sees the pending intent and quarantines it instead of sending again.
       - name: Checkpoint state before Telegram delivery
         if: success() && github.event_name == 'schedule' && hashFiles('.state/state.json') != ''
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             .state/state.json
@@ -102,7 +102,7 @@ jobs:
       # remains and the next run will not automatically resend it.
       - name: Save final state for subsequent scheduled runs
         if: success() && github.event_name == 'schedule' && hashFiles('.state/state.json') != ''
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             .state/state.json
