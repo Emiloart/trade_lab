@@ -119,7 +119,12 @@ def run_once(
     try:
         send(message)
     except NotifyError as exc:
-        # Not recorded, so the next run retries while the signal is fresh.
+        if exc.delivery_uncertain:
+            # Do not automatically resend: Telegram may have accepted the
+            # message before the response was lost. Reconcile manually.
+            store.record_delivery_unknown(day, "telegram_delivery_uncertain", sig)
+            return RunResult("delivery_unknown", str(exc), sig, message)
+        # Explicit rejection: leave the day open so a corrected request can retry.
         return RunResult("send_failed", str(exc), sig, message)
     store.record_sent(day, sig, entry, lots)
     return RunResult("sent", signal=sig, message=message)
