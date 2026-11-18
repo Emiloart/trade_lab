@@ -50,8 +50,12 @@ def guard_cache(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Validate or safely bootstrap Trade Lab state cache")
-    parser.add_argument("--matched-key", default="", help="cache-matched-key output from actions/cache")
+    parser = argparse.ArgumentParser(
+        description="Validate or safely bootstrap Trade Lab state cache"
+    )
+    parser.add_argument(
+        "--matched-key", default="", help="cache-matched-key output from actions/cache"
+    )
     parser.add_argument("--state-file", default=".state/state.json")
     args = parser.parse_args(argv)
 
