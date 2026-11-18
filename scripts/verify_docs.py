@@ -36,7 +36,7 @@ def verify_command_line(raw_line: str, source: str) -> None:
     if not line or line.startswith("#") or line == "|":
         return
 
-    match = re.match(r"^(?:python|python3|py)\\s+(?:(-m)\\s+)?([^\\s]+)", line)
+    match = re.match(r"^(?:python|python3|py)\s+(?:(-m)\s+)?([^\s]+)", line)
     if match:
         is_module, target = match.groups()
         if is_module:
@@ -51,7 +51,7 @@ def verify_command_line(raw_line: str, source: str) -> None:
             if not script_path.is_file():
                 fail(f"unknown Python script in {source}: {target}")
 
-    ruff = re.match(r"^ruff\\s+check\\s+(.+)$", line)
+    ruff = re.match(r"^ruff\s+check\s+(.+)$", line)
     if ruff:
         for target in ruff.group(1).split():
             if target.startswith("-"):
@@ -61,7 +61,7 @@ def verify_command_line(raw_line: str, source: str) -> None:
 
 
 def verify_commands(text: str, source: str) -> None:
-    for block in re.findall(r"```[^\\n]*\\n(.*?)```", text, flags=re.DOTALL):
+    for block in re.findall(r"```[^\n]*\n(.*?)```", text, flags=re.DOTALL):
         for raw_line in block.splitlines():
             verify_command_line(raw_line, source)
 
