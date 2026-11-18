@@ -70,7 +70,7 @@ def test_entry_gap_through_stop_rejects_trade_instead_of_filling():
 
 
 def test_entry_gap_through_target_rejects_chasing():
-    trades = run_backtest(sample_bars((103.0, 104.0, 102.5, 103.5)), config())
+    trades = run_backtest(sample_bars((105.0, 106.0, 104.5, 105.5)), config())
     trade = trades.iloc[0]
     assert trade["Status"] == "NOT_EXECUTED"
     assert trade["Exit_Reason"] == "ENTRY_GAP_THROUGH_TARGET"
@@ -78,11 +78,11 @@ def test_entry_gap_through_target_rejects_chasing():
 
 def test_target_gap_after_entry_fills_at_open_or_better():
     bars = sample_bars((101.0, 101.5, 100.0, 101.0))
-    bars = append_bar(bars, [103.0, 104.0, 102.5, 103.5, 1000.0])
+    bars = append_bar(bars, [106.0, 107.0, 105.5, 106.5, 1000.0])
     trades = run_backtest(bars, config())
     trade = trades.iloc[0]
     assert trade["Exit_Reason"] == "TARGET_GAP"
-    assert trade["Exit"] == pytest.approx(103.0)
+    assert trade["Exit"] == pytest.approx(106.0)
 
 
 def test_no_next_in_session_bar_is_recorded_as_not_executed():
