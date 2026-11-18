@@ -182,7 +182,7 @@ def main() -> int:
         if field_name not in defaults or env_name not in table_defaults:
             fail(f"cannot verify documented default for {env_name}")
         try:
-            documented_default = float(table_defaults[env_name].strip())
+            documented_default = float(table_defaults[env_name].strip().strip("`"))
             implemented_default = float(defaults[field_name])
         except (TypeError, ValueError, OverflowError):
             fail(f"non-numeric default needs an explicit verifier rule: {env_name}")
