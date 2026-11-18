@@ -117,6 +117,7 @@ def run_from_config(config_path: str | Path, output_path: str | Path) -> int:
     if not raw_symbols:
         raise ValueError("symbols must contain at least one instrument")
     datasets, instruments, costs, rates, sources = {}, {}, {}, {}, {}
+    input_paths = {source_path}
     for symbol, item_raw in raw_symbols.items():
         if not symbol.strip():
             raise ValueError("symbol keys cannot be empty")
@@ -140,6 +141,10 @@ def run_from_config(config_path: str | Path, output_path: str | Path) -> int:
         csv_path = Path(item["csv"]).expanduser()
         if not csv_path.is_absolute():
             csv_path = source_path.parent / csv_path
+        csv_path = csv_path.resolve()
+        if csv_path in input_paths:
+            raise ValueError("a CSV input path cannot be reused as the configuration or another input")
+        input_paths.add(csv_path)
         datasets[symbol] = load_csv(csv_path)
         instruments[symbol] = _instrument(item["instrument"], symbol)
         cost_values = _object(item["costs"], f"{label}.costs")
@@ -156,6 +161,8 @@ def run_from_config(config_path: str | Path, output_path: str | Path) -> int:
         final_holdout_days=config.get("final_holdout_days", 0),
     )
     destination = Path(output_path).expanduser().resolve()
+    if destination in input_paths:
+        raise ValueError("output path must not overwrite the configuration or an input dataset")
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary_name: str | None = None
     try:
