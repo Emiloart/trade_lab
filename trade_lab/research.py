@@ -138,7 +138,7 @@ def run_walk_forward_research(
             for variant in variants:
                 trades = run_backtest(
                     bars, variant.config, costs=costs[symbol], instrument=instrument,
-                    value_to_account_rate=rates.get(symbol, 1.0), risk=risk, risk=risk,
+                    value_to_account_rate=rates.get(symbol, 1.0), risk=risk,
                 )
                 train = _summary_for_range(trades, window.train_start, window.train_end)
                 validation = _summary_for_range(
@@ -160,7 +160,7 @@ def run_walk_forward_research(
             selected_variant, _ = max(evaluated, key=lambda item: _selection_key(item[1]))
             test_trades = run_backtest(
                 bars, selected_variant.config, costs=costs[symbol], instrument=instrument,
-                value_to_account_rate=rates.get(symbol, 1.0),
+                value_to_account_rate=rates.get(symbol, 1.0), risk=risk,
             )
             test = _summary_for_range(test_trades, window.test_start, window.test_end)
             output.append({
