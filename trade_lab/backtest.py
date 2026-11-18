@@ -19,7 +19,7 @@ from .strategy import LONG, first_signal, prepare
 
 @dataclass(frozen=True)
 class BacktestCosts:
-    """Static costs: full quoted spread and adverse slippage per fill, commission per unit per side."""
+    """Static spread and slippage per fill; commission per unit per side."""
 
     spread_points: float = 0.0
     slippage_points: float = 0.0
@@ -207,7 +207,11 @@ def run_backtest(
             risk_per_unit = stop_distance + execution.total_risk_cost_per_unit
             units = risk_config.risk_dollars / risk_per_unit
         else:
-            if isinstance(value_to_account_rate, bool) or not math.isfinite(value_to_account_rate) or value_to_account_rate <= 0:
+            if (
+                isinstance(value_to_account_rate, bool)
+                or not math.isfinite(value_to_account_rate)
+                or value_to_account_rate <= 0
+            ):
                 raise ValueError("value_to_account_rate must be a positive finite number")
             point_value = (
                 instrument.tick_value / instrument.tick_size * value_to_account_rate
@@ -322,7 +326,10 @@ def performance_summary(trades: pd.DataFrame) -> dict[str, float | int]:
     profit_factor = gross_profit / gross_loss if gross_loss else (
         float("inf") if gross_profit else 0.0
     )
-    r_values = closed["R_Multiple"].astype(float) if "R_Multiple" in closed else pd.Series(dtype=float)
+    r_values = (
+        closed["R_Multiple"].astype(float)
+        if "R_Multiple" in closed else pd.Series(dtype=float)
+    )
     signal_r = (
         closed["Signal_R_Multiple"].astype(float)
         if "Signal_R_Multiple" in closed else pd.Series(dtype=float)
