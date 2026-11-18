@@ -2,7 +2,6 @@ from datetime import datetime, timezone
 
 import pytest
 
-from trade_lab.market_data import MarketQuote
 from trade_lab.execution import (
     AccountEnvironment,
     AccountSnapshot,
@@ -12,6 +11,7 @@ from trade_lab.execution import (
     OrderType,
     assert_execution_allowed,
 )
+from trade_lab.market_data import MarketQuote
 
 
 def account(environment=AccountEnvironment.DEMO):
