@@ -32,8 +32,11 @@ rule. Choose horizons before examining results; do not tune on final holdout dat
 
 Use `trade_lab.research.run_walk_forward_research` with symbol-keyed OHLCV
 datasets, instrument specifications, execution costs, and an explicit data_sources
-label for every symbol. It records a SHA-256 fingerprint of each normalized
-dataset alongside its source label and data bounds. The runner uses the
+label for every symbol. The CLI additionally preserves the exact source CSV bytes
+and writes a content-addressed snapshot plus a run manifest. The research engine
+continues to record a SHA-256 fingerprint of each normalized in-memory dataset
+alongside its source label and data bounds; the manifest separately records the
+original-file SHA-256. The runner uses the
 intersection of observed New York sessions so every symbol is evaluated over
 the same train/validation/test date boundaries. Each symbol/variant backtest
 is computed once and reused across the windows. Supply an explicit
@@ -102,3 +105,25 @@ provenance. No placeholder economics should be presented as observed costs.
 - Rolling test windows are out-of-sample relative to their own validation
   selection, but are not one untouched final holdout. Reserve a later,
   untouched date range for final confirmation.
+
+
+## Historical data integrity
+
+The research CLI validates source CSVs before passing bars to the strategy. It
+does not use the live normalizer's repair behavior. Duplicate or unordered
+timestamps, missing columns, missing/non-finite values, non-positive prices,
+invalid OHLC envelopes, and negative volume are hard errors. Optional
+`interval_minutes` detects unusually large gaps within the same New York
+calendar date and records warnings. These checks deliberately do not classify
+overnight, weekend, holiday, or early-close gaps because no exchange calendar
+is currently integrated.
+
+Every successful CLI run preserves the original CSV bytes in its artifact
+directory and writes `research-config.json` and `manifest.json`. The manifest
+records source hashes, snapshot paths, source labels, optional provider and
+retrieval metadata, interval and adjustment assumptions, symbol mapping,
+validation findings, strategy/risk settings, walk-forward protocol, and the
+code revision when supplied by the runtime. `retrieved_at` is optional and
+must be provided by the operator when known; the tool does not fabricate it.
+Keep the artifact directory with the report to reproduce the input dataset
+and configuration used for a run.

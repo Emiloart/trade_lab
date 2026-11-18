@@ -1,3 +1,4 @@
+import hashlib
 import json
 
 import pandas as pd
@@ -52,6 +53,14 @@ def test_cli_runs_and_writes_research_report(tmp_path, capsys):
     assert {"candidate", "selected_test", "final_holdout"} == set(report["role"])
     assert set(report["symbol"]) == {"ETF"}
     assert report["data_hash"].str.len().eq(64).all()
+    artifacts = output.with_suffix(".artifacts")
+    manifest = json.loads((artifacts / "manifest.json").read_text(encoding="utf-8"))
+    snapshot = next((artifacts / "datasets").glob("*.csv"))
+    source = (tmp_path / "fixture.csv").read_bytes()
+    assert snapshot.read_bytes() == source
+    assert manifest["datasets"]["ETF"]["sha256"] == hashlib.sha256(source).hexdigest()
+    assert manifest["datasets"]["ETF"]["snapshot"] == f"datasets/{snapshot.name}"
+    assert manifest["config_sha256"] == hashlib.sha256(config.read_bytes()).hexdigest()
     assert "Research report written" in capsys.readouterr().out
 
 
@@ -76,3 +85,33 @@ def test_cli_refuses_to_overwrite_an_input_dataset(tmp_path, capsys):
     assert main(["--config", str(config_path), "--output", str(csv_path)]) == 2
     assert csv_path.read_bytes() == original
     assert "must not overwrite" in capsys.readouterr().err
+
+
+def test_cli_rejects_duplicate_timestamps_instead_of_dropping_them(tmp_path, capsys):
+    config_path, _ = _fixture(tmp_path)
+    csv_path = tmp_path / "fixture.csv"
+    frame = pd.read_csv(csv_path)
+    frame.loc[1, "Datetime"] = frame.loc[0, "Datetime"]
+    frame.to_csv(csv_path, index=False)
+    assert main(["--config", str(config_path), "--output", str(tmp_path / "out.csv")]) == 2
+    assert "duplicate_timestamps" in capsys.readouterr().err
+
+
+def test_cli_records_intraday_gap_as_warning(tmp_path):
+    config_path, config = _fixture(tmp_path)
+    csv_path = tmp_path / "fixture.csv"
+    frame = pd.read_csv(csv_path)
+    frame = frame.drop(index=1)
+    frame.to_csv(csv_path, index=False)
+    config["symbols"]["ETF"]["interval_minutes"] = 5
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+    output = tmp_path / "out.csv"
+    assert main(["--config", str(config_path), "--output", str(output)]) == 0
+    manifest = json.loads(
+        (output.with_suffix(".artifacts") / "manifest.json").read_text(encoding="utf-8")
+    )
+    codes = {
+        finding["code"]
+        for finding in manifest["datasets"]["ETF"]["validation_findings"]
+    }
+    assert "intraday_gaps" in codes
