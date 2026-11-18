@@ -202,7 +202,11 @@ def performance_summary(trades: pd.DataFrame) -> dict[str, float | int]:
     profit_factor = gross_profit / gross_loss if gross_loss else (
         float("inf") if gross_profit else 0.0
     )
-    r_values = (\n        closed["R_Multiple"].astype(float)\n        if "R_Multiple" in closed else pd.Series(dtype=float)\n    )
+    r_values = (
+        closed["R_Multiple"].astype(float)
+        if "R_Multiple" in closed
+        else pd.Series(dtype=float)
+    )
     costs_total = (
         float(trades["Execution_Costs_$"].astype(float).sum())
         if "Execution_Costs_$" in trades else 0.0
