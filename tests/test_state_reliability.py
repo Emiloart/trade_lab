@@ -64,6 +64,8 @@ def test_cached_state_must_exist(tmp_path):
         '{"version": 1, "days": {"20261118": {"entries": [], "realized_pnl": 0}}}',
         '{"version": 1, "days": {"2026-11-18": {"entries": [], "realized_pnl": 1e999}}}',
         '{"version": 1.0, "days": {}}',
+        '{"version": 1, "days": {"2026-11-18": {"entries": [], "realized_pnl": 0, "extra": true}}}',
+        '{"version": 1, "days": {"2026-11-18": {"entries": [{"status": "missed", "side": "LONG", "bar_time": "2026-11-18T16:10:00+00:00", "reason": "stale", "extra": true}], "realized_pnl": 0}}}',
     ],
 )
 def test_state_rejects_invalid_nested_values(tmp_path, payload):
