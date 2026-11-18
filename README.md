@@ -9,7 +9,8 @@ The project is built around a VWAP pullback strategy. Its research and monitorin
 - **Market monitoring:** evaluates completed market bars with New York session awareness and sends Telegram alerts.
 - **Historical backtesting:** evaluates strategy signals against historical price data using next-bar execution, modeled spread, slippage, commissions, and risk-based position sizing.
 - **Multi-instrument research:** compares instruments using their own trading specifications, account-currency conversion, execution costs, and data provenance.
-- **Walk-forward evaluation:** separates chronological training, validation, test, and optional holdout periods to support disciplined strategy assessment.
+- **Walk-forward evaluation:** separates chronological training, validation, test, and optional holdout periods, with uncertainty intervals, multiple-testing controls, parameter-sensitivity analysis, and explicit acceptance criteria.
+- **Cost stress testing:** evaluates selected configurations under higher spread, slippage, and commission assumptions.
 - **Reproducible research:** validates historical datasets and records configuration, data fingerprints, provenance, and experiment artifacts.
 - **Engineering quality:** includes automated tests, linting, and documentation checks in GitHub Actions.
 

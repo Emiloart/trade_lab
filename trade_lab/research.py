@@ -17,6 +17,7 @@ import pandas as pd
 from .backtest import BacktestCosts, performance_summary, run_backtest
 from .config import AccountRiskConfig, StrategyConfig, StrategyParameters
 from .instruments import InstrumentSpec
+from .robustness import block_bootstrap_summary, cost_scenarios, rejection_reasons
 from .sessions import NY, in_window
 from .strategy import Signal, signal_for_bar
 
@@ -27,9 +28,13 @@ class ResearchVariant:
     name: str
     config: StrategyParameters
 
+    sensitivity_group: str = "default"
+
     def __post_init__(self) -> None:
         if not self.name.strip():
             raise ValueError("variant name cannot be empty")
+        if not self.sensitivity_group.strip():
+            raise ValueError("sensitivity_group cannot be empty")
 
 
 @dataclass(frozen=True)
@@ -111,14 +116,22 @@ def run_walk_forward_research(
     risk: AccountRiskConfig | None = None,
     data_sources: Mapping[str, str],
     final_holdout_days: int = 0,
+    minimum_validation_trades: int = 30,
+    minimum_test_trades: int = 30,
+    confidence_level: float = 0.95,
+    bootstrap_samples: int = 2000,
+    bootstrap_block_length: int = 5,
+    cost_stress_multipliers: tuple[float, ...] = (1.0, 1.5, 2.0),
 ) -> pd.DataFrame:
     """Evaluate symbols on shared calendar windows and explicit per-symbol costs.
 
     The intersection of observed New York sessions is used for every symbol,
     keeping cross-instrument train/validation/test date boundaries aligned.
-    Each symbol/variant backtest is computed once and reused across windows.
-    Validation expectancy selects the variant; test data never participates
-    in selection. Full history is passed to preserve indicator warm-up.
+    Each base symbol/variant backtest is computed once and reused across windows;
+    additional backtests apply the declared transaction-cost stress scenarios.
+    Variants are ranked on Bonferroni-adjusted block-bootstrap validation bounds.
+    Test data never participates in selection. Full history is passed to preserve
+    indicator warm-up.
     """
     if not datasets:
         raise ValueError("at least one dataset is required")
@@ -132,6 +145,17 @@ def run_walk_forward_research(
         or final_holdout_days < 0
     ):
         raise ValueError("final_holdout_days must be a non-negative integer")
+    for label, value in (
+        ("minimum_validation_trades", minimum_validation_trades),
+        ("minimum_test_trades", minimum_test_trades),
+        ("bootstrap_samples", bootstrap_samples),
+        ("bootstrap_block_length", bootstrap_block_length),
+    ):
+        minimum = 200 if label == "bootstrap_samples" else 1
+        if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+            raise ValueError(f"{label} must be an integer >= {minimum}")
+    if not 0 < confidence_level < 1:
+        raise ValueError("confidence_level must be between 0 and 1")
 
     rates = value_to_account_rates or {}
     sources = data_sources
@@ -180,7 +204,9 @@ def run_walk_forward_research(
     for symbol, bars in datasets.items():
         instrument = instruments[symbol]
         execution_costs = costs[symbol]
+        cost_scenarios(execution_costs, cost_stress_multipliers)
         trades_by_variant: dict[str, pd.DataFrame] = {}
+        stress_trades_by_variant: dict[str, dict[float, pd.DataFrame]] = {}
         metadata_by_variant: dict[str, dict[str, object]] = {}
 
         for variant in variants:
@@ -192,6 +218,23 @@ def run_walk_forward_research(
                 value_to_account_rate=rates.get(symbol, 1.0),
                 risk=risk,
             )
+            stress_trades_by_variant[variant.name] = {
+                multiplier: (
+                    trades_by_variant[variant.name]
+                    if multiplier == 1.0
+                    else run_backtest(
+                        bars,
+                        variant.config,
+                        costs=stressed_costs,
+                        instrument=instrument,
+                        value_to_account_rate=rates.get(symbol, 1.0),
+                        risk=risk,
+                    )
+                )
+                for multiplier, stressed_costs in cost_scenarios(
+                    execution_costs, cost_stress_multipliers
+                )
+            }
             variant_risk = risk or (
                 AccountRiskConfig(
                     variant.config.account_size,
@@ -237,12 +280,46 @@ def run_walk_forward_research(
                 validation = _summary_for_range(
                     trades, window.validation_start, window.validation_end
                 )
-                evaluated.append((variant, validation))
+                validation_stats = block_bootstrap_summary(
+                    trades.loc[
+                        trades["Date"].map(date.fromisoformat).between(
+                            window.validation_start, window.validation_end
+                        )
+                    ] if not trades.empty else trades,
+                    confidence_level=confidence_level,
+                    bootstrap_samples=bootstrap_samples,
+                    block_length=bootstrap_block_length,
+                    family_size=len(variants),
+                    seed=1729 + window_number,
+                )
+                evaluated.append((variant, validation, validation_stats))
+                group_variants = [
+                    item for item in variants
+                    if item.sensitivity_group == variant.sensitivity_group
+                ]
+                group_expectancies = [
+                    _summary_for_range(
+                        trades_by_variant[item.name],
+                        window.validation_start,
+                        window.validation_end,
+                    )["expectancy_r"]
+                    for item in group_variants
+                ]
                 output.append({
                     "symbol": symbol,
                     "window": window_number,
                     "variant": variant.name,
                     "role": "candidate",
+                    "sensitivity_group": variant.sensitivity_group,
+                    "sensitivity_variant_count": len(group_variants),
+                    "sensitivity_expectancy_min": min(group_expectancies),
+                    "sensitivity_expectancy_median": float(pd.Series(group_expectancies).median()),
+                    "sensitivity_expectancy_max": max(group_expectancies),
+                    "sensitivity_positive_variant_share": float(
+                        sum(value > 0 for value in group_expectancies) / len(group_expectancies)
+                    ),
+                    "validation_minimum_trades": minimum_validation_trades,
+                    "multiple_testing_family_size": len(variants),
                     **metadata_by_variant[variant.name],
                     "train_start": window.train_start.isoformat(),
                     "train_end": window.train_end.isoformat(),
@@ -252,18 +329,97 @@ def run_walk_forward_research(
                     "test_end": window.test_end.isoformat(),
                     **{f"train_{key}": value for key, value in train.items()},
                     **{f"validation_{key}": value for key, value in validation.items()},
+                    **{f"validation_{key}": value for key, value in validation_stats.items()},
                 })
 
-            selected_variant, _ = max(evaluated, key=lambda item: _selection_key(item[1]))
-            test = _summary_for_range(
-                trades_by_variant[selected_variant.name], window.test_start, window.test_end
+            selected_variant, _, selected_validation_stats = max(
+                evaluated,
+                key=lambda item: (
+                    float(item[2]["adjusted_expectancy_ci_low"])
+                    if math.isfinite(float(item[2]["adjusted_expectancy_ci_low"]))
+                    else -math.inf,
+                    _selection_key(item[1]),
+                ),
             )
+            selected_trades = trades_by_variant[selected_variant.name]
+            test_trades = (
+                selected_trades.loc[
+                    selected_trades["Date"].map(date.fromisoformat).between(
+                        window.test_start, window.test_end
+                    )
+                ] if not selected_trades.empty else selected_trades
+            )
+            test = _summary_for_range(selected_trades, window.test_start, window.test_end)
+            test_stats = block_bootstrap_summary(
+                test_trades, confidence_level=confidence_level,
+                bootstrap_samples=bootstrap_samples, block_length=bootstrap_block_length,
+                family_size=1, seed=2729 + window_number,
+            )
+            validation_reasons = rejection_reasons(
+                selected_validation_stats, minimum_trades=minimum_validation_trades
+            )
+            test_reasons = rejection_reasons(
+                test_stats, minimum_trades=minimum_test_trades
+            )
+            reasons = [
+                *(f"VALIDATION_{reason}" for reason in validation_reasons),
+                *(f"TEST_{reason}" for reason in test_reasons),
+            ]
+            stress_metrics: dict[str, object] = {}
+            max_multiplier = max(cost_stress_multipliers)
+            max_stress_stats: dict[str, float | int] = {}
+            for multiplier, stress_trades in stress_trades_by_variant[
+                selected_variant.name
+            ].items():
+                scoped = (
+                    stress_trades.loc[
+                        stress_trades["Date"].map(date.fromisoformat).between(
+                            window.test_start, window.test_end
+                        )
+                    ] if not stress_trades.empty else stress_trades
+                )
+                stress_summary = _summary_for_range(
+                    stress_trades, window.test_start, window.test_end
+                )
+                stress_stats = block_bootstrap_summary(
+                    scoped, confidence_level=confidence_level,
+                    bootstrap_samples=bootstrap_samples,
+                    block_length=bootstrap_block_length,
+                    family_size=1, seed=3729 + window_number + int(multiplier * 100),
+                )
+                stress_metrics.update({
+                    f"test_cost_{multiplier:g}x_expectancy_r": stress_summary["expectancy_r"],
+                    f"test_cost_{multiplier:g}x_adjusted_ci_low": (
+                        stress_stats["adjusted_expectancy_ci_low"]
+                    ),
+                    f"test_cost_{multiplier:g}x_closed": stress_stats["sample_trades"],
+                })
+                if multiplier == max_multiplier:
+                    max_stress_stats = stress_stats
+            if int(max_stress_stats.get("sample_trades", 0)) < minimum_test_trades or (
+                not math.isfinite(
+                    float(
+                        max_stress_stats.get(
+                            "adjusted_expectancy_ci_low", float("nan")
+                        )
+                    )
+                )
+                or float(max_stress_stats["adjusted_expectancy_ci_low"]) <= 0
+            ):
+                reasons.append("COST_STRESS_FAILURE")
             output.append({
                 "symbol": symbol,
                 "window": window_number,
                 "variant": selected_variant.name,
                 "role": "selected_test",
-                "selected_on": "validation_expectancy_r",
+                "decision": "ACCEPT" if not reasons else "REJECT",
+                "rejection_reasons": ";".join(reasons),
+                "selected_on": "validation_bonferroni_adjusted_block_bootstrap_lower_bound",
+                "validation_adjusted_ci_low": (
+                    selected_validation_stats["adjusted_expectancy_ci_low"]
+                ),
+                "minimum_test_trades": minimum_test_trades,
+                "cost_stress_max_multiplier": max_multiplier,
                 **metadata_by_variant[selected_variant.name],
                 "train_start": window.train_start.isoformat(),
                 "train_end": window.train_end.isoformat(),
@@ -272,6 +428,8 @@ def run_walk_forward_research(
                 "test_start": window.test_start.isoformat(),
                 "test_end": window.test_end.isoformat(),
                 **{f"test_{key}": value for key, value in test.items()},
+                **{f"test_{key}": value for key, value in test_stats.items()},
+                **stress_metrics,
             })
 
         if holdout_sessions:
@@ -281,29 +439,124 @@ def run_walk_forward_research(
                 validation_trades = (
                     trades.loc[
                         trades["Date"].map(date.fromisoformat).isin(validation_sessions)
-                    ]
-                    if not trades.empty
-                    else trades
+                    ] if not trades.empty else trades
                 )
-                aggregate.append((variant, performance_summary(validation_trades)))
-            final_variant, _ = max(aggregate, key=lambda item: _selection_key(item[1]))
-            holdout = _summary_for_range(
-                trades_by_variant[final_variant.name],
-                holdout_sessions[0],
-                holdout_sessions[-1],
-            )
-            output.append({
-                "symbol": symbol,
-                "window": "final",
-                "variant": final_variant.name,
-                "role": "final_holdout",
-                "selected_on": "aggregate_validation_expectancy_r",
-                **metadata_by_variant[final_variant.name],
-                "validation_sessions_used": len(validation_sessions),
-                "holdout_start": holdout_sessions[0].isoformat(),
-                "holdout_end": holdout_sessions[-1].isoformat(),
-                **{f"holdout_{key}": value for key, value in holdout.items()},
-            })
+                stats = block_bootstrap_summary(
+                    validation_trades, confidence_level=confidence_level,
+                    bootstrap_samples=bootstrap_samples,
+                    block_length=bootstrap_block_length,
+                    family_size=len(variants), seed=4729,
+                )
+                aggregate.append((variant, performance_summary(validation_trades), stats))
+            if aggregate:
+                final_variant, _, final_validation_stats = max(
+                    aggregate,
+                    key=lambda item: (
+                        float(item[2]["adjusted_expectancy_ci_low"])
+                        if math.isfinite(float(item[2]["adjusted_expectancy_ci_low"]))
+                        else -math.inf,
+                        _selection_key(item[1]),
+                    ),
+                )
+                holdout = _summary_for_range(
+                    trades_by_variant[final_variant.name],
+                    holdout_sessions[0], holdout_sessions[-1],
+                )
+                holdout_trades = trades_by_variant[final_variant.name]
+                holdout_trades = (
+                    holdout_trades.loc[
+                        holdout_trades["Date"].map(date.fromisoformat).between(
+                            holdout_sessions[0], holdout_sessions[-1]
+                        )
+                    ] if not holdout_trades.empty else holdout_trades
+                )
+                holdout_stats = block_bootstrap_summary(
+                    holdout_trades, confidence_level=confidence_level,
+                    bootstrap_samples=bootstrap_samples,
+                    block_length=bootstrap_block_length, family_size=1, seed=5729,
+                )
+                validation_reasons = rejection_reasons(
+                    final_validation_stats, minimum_trades=minimum_validation_trades
+                )
+                holdout_reasons = rejection_reasons(
+                    holdout_stats, minimum_trades=minimum_test_trades
+                )
+                holdout_reasons = [
+                    *(f"VALIDATION_{reason}" for reason in validation_reasons),
+                    *(f"HOLDOUT_{reason}" for reason in holdout_reasons),
+                ]
+                holdout_stress_metrics: dict[str, object] = {}
+                maximum_holdout_stress: dict[str, float | int] = {}
+                for multiplier, stress_trades in stress_trades_by_variant[
+                    final_variant.name
+                ].items():
+                    scoped_stress = (
+                        stress_trades.loc[
+                            stress_trades["Date"].map(date.fromisoformat).between(
+                                holdout_sessions[0], holdout_sessions[-1]
+                            )
+                        ] if not stress_trades.empty else stress_trades
+                    )
+                    stress_stats = block_bootstrap_summary(
+                        scoped_stress, confidence_level=confidence_level,
+                        bootstrap_samples=bootstrap_samples,
+                        block_length=bootstrap_block_length, family_size=1,
+                        seed=6729 + int(multiplier * 100),
+                    )
+                    stress_summary = _summary_for_range(
+                        stress_trades, holdout_sessions[0], holdout_sessions[-1]
+                    )
+                    holdout_stress_metrics.update({
+                        f"holdout_cost_{multiplier:g}x_expectancy_r": (
+                            stress_summary["expectancy_r"]
+                        ),
+                        f"holdout_cost_{multiplier:g}x_adjusted_ci_low": (
+                            stress_stats["adjusted_expectancy_ci_low"]
+                        ),
+                        f"holdout_cost_{multiplier:g}x_closed": stress_stats["sample_trades"],
+                    })
+                    if multiplier == max(cost_stress_multipliers):
+                        maximum_holdout_stress = stress_stats
+                if int(maximum_holdout_stress.get("sample_trades", 0)) < minimum_test_trades or (
+                    not math.isfinite(
+                        float(
+                            maximum_holdout_stress.get(
+                                "adjusted_expectancy_ci_low", float("nan")
+                            )
+                        )
+                    )
+                    or float(maximum_holdout_stress["adjusted_expectancy_ci_low"]) <= 0
+                ):
+                    holdout_reasons.append("COST_STRESS_FAILURE")
+                output.append({
+                    "symbol": symbol, "window": "final", "variant": final_variant.name,
+                    "role": "final_holdout",
+                    "decision": "ACCEPT" if not holdout_reasons else "REJECT",
+                    "rejection_reasons": ";".join(holdout_reasons),
+                    "selected_on": (
+                        "aggregate_validation_bonferroni_adjusted_block_bootstrap_lower_bound"
+                    ),
+                    "validation_adjusted_ci_low": (
+                        final_validation_stats["adjusted_expectancy_ci_low"]
+                    ),
+                    **metadata_by_variant[final_variant.name],
+                    "validation_sessions_used": len(validation_sessions),
+                    "holdout_start": holdout_sessions[0].isoformat(),
+                    "holdout_end": holdout_sessions[-1].isoformat(),
+                    **{f"holdout_{key}": value for key, value in holdout.items()},
+                    **{f"holdout_{key}": value for key, value in holdout_stats.items()},
+                    **holdout_stress_metrics,
+                })
+            else:
+                output.append({
+                    "symbol": symbol, "window": "final", "variant": "",
+                    "role": "final_holdout_rejected", "decision": "REJECT",
+                    "rejection_reasons": "INSUFFICIENT_VALIDATION_TRADES",
+                    "minimum_validation_trades": minimum_validation_trades,
+                    "validation_sessions_used": len(validation_sessions),
+                    "holdout_start": holdout_sessions[0].isoformat(),
+                    "holdout_end": holdout_sessions[-1].isoformat(),
+                })
     return pd.DataFrame(output)
 
 

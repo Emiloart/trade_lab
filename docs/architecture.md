@@ -21,6 +21,7 @@ The maintained implementation is the `trade_lab/` package:
 | `strategy.py` | Canonical VWAP pullback signal definition |
 | `backtest.py` | Historical execution simulation using the canonical strategy functions |
 | `research.py` | Reclaim-outcome measurement and chronological multi-instrument walk-forward evaluation |
+| `robustness.py` | Moving-block bootstrap intervals, multiple-testing adjustment support, cost scenarios, and rejection rules |
 | `research_cli.py` | Strict JSON-driven research runner and atomic CSV report writer |
 | `sizing.py` | Risk-based unit/lot sizing and daily loss comparison |
 | `state.py` | Validated JSON state, atomic replacement, recovery backup, and pending-delivery journal |
