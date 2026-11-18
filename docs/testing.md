@@ -15,7 +15,7 @@ ruff check .
 python scripts/verify_docs.py
 ```
 
-CI runs the same Ruff, pytest, and documentation checks. The maintained backtest entry points and their shared helper are included in lint. Unrelated historical utilities remain separate research tools.
+CI runs the same repository-wide Ruff, pytest, and documentation checks. All tracked Python files, including standalone research utilities, are included in lint.
 
 ## Strategy and parity checks
 
