@@ -46,7 +46,7 @@ class Harness:
 
     def send(self, text):
         if self.fail_send:
-            raise NotifyError("Telegram returned HTTP 500")
+            raise NotifyError("Telegram returned HTTP 400")
         self.sent.append(text)
 
     def run(self, now, dry_run=False):
