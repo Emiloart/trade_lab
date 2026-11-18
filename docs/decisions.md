@@ -44,7 +44,7 @@ The previous close used in true range is grouped by New York calendar date. Ther
 
 **Status:** Accepted
 
-A missing state file means first-time initialization. An existing unreadable, malformed, or unsupported-schema file is not equivalent to missing state: the monitor stops rather than assuming no alerts have been sent. Operators must preserve and repair or restore the file before resuming.
+A missing state file is accepted only during the pre-session bootstrap window in the scheduled workflow. An existing unreadable, malformed, structurally invalid, missing-primary-with-backup, or unsupported-schema file is not equivalent to missing state: the monitor stops rather than assuming no alerts have been sent. State writes are atomic, synchronised where supported, and preserve the previous primary in a `.bak` file. Operators must preserve and explicitly restore state before resuming.
 
 ## DEC-008 — GitHub Actions cache is a continuity mechanism only
 
@@ -58,7 +58,7 @@ The scheduled workflow serializes runs and uses date-scoped cache keys. It saves
 
 Configuration values for account size, point value, and lot sizing are assumptions supplied by the operator. No broker integration currently verifies them. Strategy changes, contract assumptions, and data-source changes require explicit review and corresponding tests.
 
-## Changing a decision
+## DEC-010 — External delivery is checkpointed before side effects\n\n**Status:** Accepted for scheduled and local runs\n\nThe application persists a pending alert before calling Telegram. GitHub Actions saves that pending state under a unique checkpoint cache key before the delivery step. A later run never sends a pending entry restored from an earlier attempt; it converts it to `delivery_unknown`. Explicit Telegram rejection clears the pending entry so a later scheduled attempt can retry. Network failures, timeouts, malformed responses, and server errors are treated as uncertain and are not retried automatically. This favors avoiding duplicate alerts over automatic recovery from ambiguous delivery.\n\n## DEC-011 — Documentation is checked against repository interfaces\n\n**Status:** Accepted\n\nCI runs `scripts/verify_docs.py`. It checks local Markdown links, documented Python command targets, Ruff paths, package module inventory, CLI options, environment variables, and workflow references against the repository. It does not prove the truth of every prose claim; implementation changes still require a deliberate documentation review and corresponding tests.\n\n## Changing a decision
 
 For a material change:
 1. State the problem and the alternatives.
