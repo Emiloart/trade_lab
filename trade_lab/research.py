@@ -127,9 +127,11 @@ def run_walk_forward_research(
 
     The intersection of observed New York sessions is used for every symbol,
     keeping cross-instrument train/validation/test date boundaries aligned.
-    Each symbol/variant backtest is computed once and reused across windows.
-    Validation expectancy selects the variant; test data never participates
-    in selection. Full history is passed to preserve indicator warm-up.
+    Each base symbol/variant backtest is computed once and reused across windows;
+    additional backtests apply the declared transaction-cost stress scenarios.
+    Variants are ranked on Bonferroni-adjusted block-bootstrap validation bounds.
+    Test data never participates in selection. Full history is passed to preserve
+    indicator warm-up.
     """
     if not datasets:
         raise ValueError("at least one dataset is required")
