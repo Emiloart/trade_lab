@@ -27,7 +27,7 @@ python -m pip install -e ".[dev]"
 | `BOT_TOKEN` | — | Telegram bot token |
 | `CHAT_ID` | — | Telegram destination chat ID |
 | `STATE_FILE` | `.state/state.json` | JSON state-file path |
-| `TRADE_LAB_RUN_ID` | workflow-generated | Identifies the current scheduled workflow attempt; do not set manually for scheduled delivery |
+| `TRADE_LAB_RUN_ID` | workflow-generated | Identifies the current scheduled workflow attempt; do not set manually for scheduled delivery |\n| `GITHUB_SHA` | unset outside GitHub Actions | Runtime commit identifier recorded in research manifests when available |\n| `TRADE_LAB_REVISION` | unset | Optional explicit code revision recorded in research manifests when `GITHUB_SHA` is unavailable |
 
 New research code separates instrument-independent `StrategyParameters` from `AccountRiskConfig`. The live monitor retains `StrategyConfig` as a backwards-compatible combined adapter, including legacy CFD lot assumptions. All floating-point strategy and sizing parameters must be finite; NaN and positive/negative infinity are rejected both for direct construction and supported numeric environment overrides. The configuration also validates positive account size, risk percentages, stop/reward values, session order, integer ATR period, and lot constraints. Invalid values fail startup with a clear error. Session times, ATR period, tolerance, and maximum lot currently use code defaults unless the Python configuration is constructed directly.
 
