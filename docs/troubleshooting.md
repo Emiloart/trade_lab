@@ -46,9 +46,9 @@ A cache miss during the session is not proof that no alert was sent; the workflo
 
 ## Telegram failures or uncertain delivery
 
-- **send_failed** means the application received a delivery error and did not record the setup; a later run may retry while the signal remains fresh.
-- A timeout or connection interruption can leave delivery uncertain even if Telegram accepted the message.
-- Check the destination chat before retrying or manually editing state.
+- **send_failed** means Telegram explicitly rejected the request; the pending entry was cleared and a later run may retry while the signal remains fresh.
+- **delivery_unknown** means a timeout, connection interruption, malformed response, or server error may have happened after Telegram accepted the message. The day remains closed for manual reconciliation.
+- Check the destination chat before retrying or manually editing state. A pending record restored from a previous workflow attempt is changed to `delivery_unknown` and is never automatically resent.
 - If a token is exposed, revoke it with BotFather and replace the BOT_TOKEN secret. Review repository history and workflow logs.
 
 ## Stale or inconsistent market data
