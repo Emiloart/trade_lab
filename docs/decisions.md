@@ -46,11 +46,11 @@ The previous close used in true range is grouped by New York calendar date. Ther
 
 A missing state file is accepted only during the pre-session bootstrap window in the scheduled workflow. An existing unreadable, malformed, structurally invalid, missing-primary-with-backup, or unsupported-schema file is not equivalent to missing state: the monitor stops rather than assuming no alerts have been sent. State writes are atomic, synchronised where supported, and preserve the previous primary in a `.bak` file. Operators must preserve and explicitly restore state before resuming.
 
-## DEC-008 — GitHub Actions cache is a continuity mechanism only
+## DEC-008 — GitHub Actions cache is a guarded continuity mechanism
 
 **Status:** Accepted with limitations
 
-The scheduled workflow serializes runs and uses date-scoped cache keys. It saves only after a successful scheduled invocation and only when the application has produced a state file. Cache is not a transactional database and cannot guarantee exactly-once Telegram delivery. An interruption after Telegram accepts a message but before state persistence can still lead to a duplicate on a later run.
+The scheduled workflow serializes runs and uses date-scoped cache keys. It fails closed on a cache miss during the trading session, checkpoints a pending delivery before calling Telegram, and stores the final outcome under a later cache key. A pending intent restored from an interrupted earlier attempt is marked `delivery_unknown` and is never automatically resent. Cache is not a transactional database; loss of all same-day cache entries requires manual reconciliation.
 
 ## DEC-009 — No implicit strategy or broker assumptions
 
