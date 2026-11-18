@@ -18,8 +18,8 @@ from .backtest import BacktestCosts, performance_summary, run_backtest
 from .config import AccountRiskConfig, StrategyConfig, StrategyParameters
 from .instruments import InstrumentSpec
 from .sessions import NY, in_window
-from .strategy import Signal, signal_for_bar
 from .robustness import block_bootstrap_summary, cost_scenarios, rejection_reasons
+from .strategy import Signal, signal_for_bar
 
 
 @dataclass(frozen=True)
@@ -151,8 +151,9 @@ def run_walk_forward_research(
         ("bootstrap_samples", bootstrap_samples),
         ("bootstrap_block_length", bootstrap_block_length),
     ):
-        if isinstance(value, bool) or not isinstance(value, int) or value < (200 if label == "bootstrap_samples" else 1):
-            raise ValueError(f"{label} must be an integer >= {200 if label == 'bootstrap_samples' else 1}")
+        minimum = 200 if label == "bootstrap_samples" else 1
+        if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+            raise ValueError(f"{label} must be an integer >= {minimum}")
     if not 0 < confidence_level < 1:
         raise ValueError("confidence_level must be between 0 and 1")
 
@@ -297,8 +298,11 @@ def run_walk_forward_research(
                     if item.sensitivity_group == variant.sensitivity_group
                 ]
                 group_expectancies = [
-                    _summary_for_range(trades_by_variant[item.name],
-                                       window.validation_start, window.validation_end)["expectancy_r"]
+                    _summary_for_range(
+                        trades_by_variant[item.name],
+                        window.validation_start,
+                        window.validation_end,
+                    )["expectancy_r"]
                     for item in group_variants
                 ]
                 output.append({
@@ -364,7 +368,9 @@ def run_walk_forward_research(
             stress_metrics: dict[str, object] = {}
             max_multiplier = max(cost_stress_multipliers)
             max_stress_stats: dict[str, float | int] = {}
-            for multiplier, stress_trades in stress_trades_by_variant[selected_variant.name].items():
+            for multiplier, stress_trades in stress_trades_by_variant[
+                selected_variant.name
+            ].items():
                 scoped = (
                     stress_trades.loc[
                         stress_trades["Date"].map(date.fromisoformat).between(
@@ -383,13 +389,21 @@ def run_walk_forward_research(
                 )
                 stress_metrics.update({
                     f"test_cost_{multiplier:g}x_expectancy_r": stress_summary["expectancy_r"],
-                    f"test_cost_{multiplier:g}x_adjusted_ci_low": stress_stats["adjusted_expectancy_ci_low"],
+                    f"test_cost_{multiplier:g}x_adjusted_ci_low": (
+                        stress_stats["adjusted_expectancy_ci_low"]
+                    ),
                     f"test_cost_{multiplier:g}x_closed": stress_stats["sample_trades"],
                 })
                 if multiplier == max_multiplier:
                     max_stress_stats = stress_stats
             if int(max_stress_stats.get("sample_trades", 0)) < minimum_test_trades or (
-                not math.isfinite(float(max_stress_stats.get("adjusted_expectancy_ci_low", float("nan"))))
+                not math.isfinite(
+                    float(
+                        max_stress_stats.get(
+                            "adjusted_expectancy_ci_low", float("nan")
+                        )
+                    )
+                )
                 or float(max_stress_stats["adjusted_expectancy_ci_low"]) <= 0
             ):
                 reasons.append("COST_STRESS_FAILURE")
@@ -401,7 +415,9 @@ def run_walk_forward_research(
                 "decision": "ACCEPT" if not reasons else "REJECT",
                 "rejection_reasons": ";".join(reasons),
                 "selected_on": "validation_bonferroni_adjusted_block_bootstrap_lower_bound",
-                "validation_adjusted_ci_low": selected_validation_stats["adjusted_expectancy_ci_low"],
+                "validation_adjusted_ci_low": (
+                    selected_validation_stats["adjusted_expectancy_ci_low"]
+                ),
                 "minimum_test_trades": minimum_test_trades,
                 "cost_stress_max_multiplier": max_multiplier,
                 **metadata_by_variant[selected_variant.name],
@@ -471,7 +487,9 @@ def run_walk_forward_research(
                 ]
                 holdout_stress_metrics: dict[str, object] = {}
                 maximum_holdout_stress: dict[str, float | int] = {}
-                for multiplier, stress_trades in stress_trades_by_variant[final_variant.name].items():
+                for multiplier, stress_trades in stress_trades_by_variant[
+                    final_variant.name
+                ].items():
                     scoped_stress = (
                         stress_trades.loc[
                             stress_trades["Date"].map(date.fromisoformat).between(
@@ -489,14 +507,24 @@ def run_walk_forward_research(
                         stress_trades, holdout_sessions[0], holdout_sessions[-1]
                     )
                     holdout_stress_metrics.update({
-                        f"holdout_cost_{multiplier:g}x_expectancy_r": stress_summary["expectancy_r"],
-                        f"holdout_cost_{multiplier:g}x_adjusted_ci_low": stress_stats["adjusted_expectancy_ci_low"],
+                        f"holdout_cost_{multiplier:g}x_expectancy_r": (
+                            stress_summary["expectancy_r"]
+                        ),
+                        f"holdout_cost_{multiplier:g}x_adjusted_ci_low": (
+                            stress_stats["adjusted_expectancy_ci_low"]
+                        ),
                         f"holdout_cost_{multiplier:g}x_closed": stress_stats["sample_trades"],
                     })
                     if multiplier == max(cost_stress_multipliers):
                         maximum_holdout_stress = stress_stats
                 if int(maximum_holdout_stress.get("sample_trades", 0)) < minimum_test_trades or (
-                    not math.isfinite(float(maximum_holdout_stress.get("adjusted_expectancy_ci_low", float("nan"))))
+                    not math.isfinite(
+                        float(
+                            maximum_holdout_stress.get(
+                                "adjusted_expectancy_ci_low", float("nan")
+                            )
+                        )
+                    )
                     or float(maximum_holdout_stress["adjusted_expectancy_ci_low"]) <= 0
                 ):
                     holdout_reasons.append("COST_STRESS_FAILURE")
@@ -505,8 +533,12 @@ def run_walk_forward_research(
                     "role": "final_holdout",
                     "decision": "ACCEPT" if not holdout_reasons else "REJECT",
                     "rejection_reasons": ";".join(holdout_reasons),
-                    "selected_on": "aggregate_validation_bonferroni_adjusted_block_bootstrap_lower_bound",
-                    "validation_adjusted_ci_low": final_validation_stats["adjusted_expectancy_ci_low"],
+                    "selected_on": (
+                        "aggregate_validation_bonferroni_adjusted_block_bootstrap_lower_bound"
+                    ),
+                    "validation_adjusted_ci_low": (
+                        final_validation_stats["adjusted_expectancy_ci_low"]
+                    ),
                     **metadata_by_variant[final_variant.name],
                     "validation_sessions_used": len(validation_sessions),
                     "holdout_start": holdout_sessions[0].isoformat(),
