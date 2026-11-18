@@ -63,6 +63,8 @@ class StateStore:
                 raise StateError(f"Non-canonical date key in state file {path}: {day!r}")
             if not isinstance(record, dict):
                 raise StateError(f"Invalid day record in state file {path}: {day}")
+            if set(record) != {"entries", "realized_pnl"}:
+                raise StateError(f"Unexpected day-record fields in state file {path}: {day}")
             entries = record.get("entries")
             if not isinstance(entries, list):
                 raise StateError(f"Invalid entries in state file {path}: {day}")
@@ -88,6 +90,18 @@ class StateStore:
                     raise StateError(f"Invalid bar_time in state file {path}: {day}") from exc
                 if parsed_time.tzinfo is None or parsed_time.utcoffset() is None:
                     raise StateError(f"Naive bar_time in state file {path}: {day}")
+                expected_fields = {
+                    "sent": {"status", "side", "bar_time", "entry", "lots"},
+                    "missed": {"status", "reason", "side", "bar_time"},
+                    "delivery_pending": {
+                        "status", "side", "bar_time", "entry", "lots", "message", "run_id"
+                    },
+                    "delivery_unknown": {
+                        "status", "side", "bar_time", "entry", "lots", "reason"
+                    },
+                }[status]
+                if set(entry) != expected_fields:
+                    raise StateError(f"Unexpected fields for {status} entry in state file {path}: {day}")
                 if status in {"sent", "delivery_pending", "delivery_unknown"}:
                     for field in ("entry", "lots"):
                         value = entry.get(field)
@@ -159,14 +173,15 @@ class StateStore:
             raise
 
     def _save(self, data: dict[str, Any]) -> None:
+        self._validate(data, self.path)
         if data["days"]:
             newest = date.fromisoformat(max(data["days"]))
             cutoff = (newest - timedelta(days=KEEP_DAYS)).isoformat()
             data["days"] = {d: v for d, v in data["days"].items() if d >= cutoff}
         self._validate(data, self.path)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        payload = (json.dumps(data, indent=2, sort_keys=True, allow_nan=False) + "\n").encode()
         try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            payload = (json.dumps(data, indent=2, sort_keys=True, allow_nan=False) + "\n").encode()
             if self.path.exists():
                 # Preserve the last known-good primary before replacing it.
                 previous = self.path.read_bytes()
@@ -180,6 +195,8 @@ class StateStore:
             self._atomic_write(self.path, payload)
         except OSError as exc:
             raise StateError(f"Could not persist state safely to {self.path}: {exc}") from exc
+        except (TypeError, ValueError) as exc:
+            raise StateError(f"Could not serialize state safely to {self.path}: {exc}") from exc
 
     def initialize(self) -> bool:
         """Validate existing state or atomically create first-run state.
