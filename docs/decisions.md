@@ -44,7 +44,7 @@ The previous close used in true range is grouped by New York calendar date. Ther
 
 **Status:** Accepted
 
-A missing state file is accepted only during the pre-session bootstrap window in the scheduled workflow. An existing unreadable, malformed, structurally invalid, missing-primary-with-backup, or unsupported-schema file is not equivalent to missing state: the monitor stops rather than assuming no alerts have been sent. State writes are atomic, synchronised where supported, and preserve the previous primary in a `.bak` file. Operators must preserve and explicitly restore state before resuming.
+In scheduled mode, a missing state file is accepted only during the pre-session bootstrap window. Local first-run operations may begin with no primary or backup file; the first state mutation creates both. An existing unreadable, malformed, structurally invalid, missing-primary-with-backup, or unsupported-schema file is not equivalent to missing state: the monitor stops rather than assuming no alerts have been sent. State writes are atomic, synchronised where supported, and preserve the previous primary in a `.bak` file. Operators must preserve and explicitly restore state before resuming.
 
 ## DEC-008 — GitHub Actions cache is a guarded continuity mechanism
 
