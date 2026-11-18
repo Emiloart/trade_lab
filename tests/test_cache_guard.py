@@ -19,7 +19,7 @@ def test_cache_miss_before_session_bootstraps_empty_state(tmp_path):
 def test_cache_miss_during_session_fails_closed(tmp_path):
     store = StateStore(tmp_path / "state.json")
     with pytest.raises(StateError, match="No same-day Actions cache"):
-        guard_cache(store, None, datetime(2026, 11, 18, 10, 0, tzinfo=NY), __import__("datetime").time(10))
+        guard_cache(store, None, datetime(2026, 11, 18, 10, 0, tzinfo=NY), time(10))
     assert not store.path.exists()
 
 
