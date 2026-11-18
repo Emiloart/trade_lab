@@ -8,7 +8,8 @@ The main implementation is the `trade_lab/` package:
 
 | Module | Responsibility |
 | --- | --- |
-| `config.py` | Immutable strategy/risk configuration and environment overrides |\n| `cache_guard.py` | Same-day cache validation and safe pre-session bootstrap |
+| `config.py` | Immutable strategy/risk configuration and environment overrides |
+| `cache_guard.py` | Same-day cache validation and safe pre-session bootstrap |
 | `data.py` | Yahoo Finance retrieval, OHLCV normalization, and cross-instrument ratio |
 | `indicators.py` | Session VWAP, true range, and ATR |
 | `sessions.py` | New York time handling, session window, closed-bar and freshness checks |
