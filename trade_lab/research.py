@@ -457,6 +457,37 @@ def run_walk_forward_research(
                 )
                 if int(final_validation_stats["sample_trades"]) < minimum_validation_trades:
                     holdout_reasons.insert(0, "INSUFFICIENT_VALIDATION_TRADES")
+                holdout_stress_metrics: dict[str, object] = {}
+                maximum_holdout_stress: dict[str, float | int] = {}
+                for multiplier, stress_trades in stress_trades_by_variant[final_variant.name].items():
+                    scoped_stress = (
+                        stress_trades.loc[
+                            stress_trades["Date"].map(date.fromisoformat).between(
+                                holdout_sessions[0], holdout_sessions[-1]
+                            )
+                        ] if not stress_trades.empty else stress_trades
+                    )
+                    stress_stats = block_bootstrap_summary(
+                        scoped_stress, confidence_level=confidence_level,
+                        bootstrap_samples=bootstrap_samples,
+                        block_length=bootstrap_block_length, family_size=1,
+                        seed=6729 + int(multiplier * 100),
+                    )
+                    stress_summary = _summary_for_range(
+                        stress_trades, holdout_sessions[0], holdout_sessions[-1]
+                    )
+                    holdout_stress_metrics.update({
+                        f"holdout_cost_{multiplier:g}x_expectancy_r": stress_summary["expectancy_r"],
+                        f"holdout_cost_{multiplier:g}x_adjusted_ci_low": stress_stats["adjusted_expectancy_ci_low"],
+                        f"holdout_cost_{multiplier:g}x_closed": stress_stats["sample_trades"],
+                    })
+                    if multiplier == max(cost_stress_multipliers):
+                        maximum_holdout_stress = stress_stats
+                if int(maximum_holdout_stress.get("sample_trades", 0)) < minimum_test_trades or (
+                    not math.isfinite(float(maximum_holdout_stress.get("adjusted_expectancy_ci_low", float("nan"))))
+                    or float(maximum_holdout_stress["adjusted_expectancy_ci_low"]) <= 0
+                ):
+                    holdout_reasons.append("COST_STRESS_FAILURE")
                 output.append({
                     "symbol": symbol, "window": "final", "variant": final_variant.name,
                     "role": "final_holdout",
@@ -470,6 +501,7 @@ def run_walk_forward_research(
                     "holdout_end": holdout_sessions[-1].isoformat(),
                     **{f"holdout_{key}": value for key, value in holdout.items()},
                     **{f"holdout_{key}": value for key, value in holdout_stats.items()},
+                    **holdout_stress_metrics,
                 })
             else:
                 output.append({
