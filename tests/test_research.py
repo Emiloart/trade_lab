@@ -64,6 +64,7 @@ def test_research_requires_explicit_symbol_economics_and_costs():
             {"ETF": bars_for_sessions()}, {}, {},
             [ResearchVariant("baseline", StrategyConfig(atr_period=1))],
             train_days=4, validation_days=2, test_days=2,
+            data_sources={},
         )
 
 
