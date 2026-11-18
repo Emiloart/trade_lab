@@ -19,7 +19,7 @@ import pandas as pd
 
 from .backtest import BacktestCosts
 from .config import AccountRiskConfig, StrategyParameters
-from .data_quality import findings_as_dicts, has_errors, validate_research_bars
+from .data_quality import findings_as_dicts, validate_research_bars
 from .filters import StrategyFilters
 from .instruments import AssetClass, InstrumentSpec
 from .research import ResearchVariant, run_walk_forward_research
