@@ -39,6 +39,19 @@ Live freshness and in-progress-candle checks are real-time safeguards. Historica
 
 GitHub Actions validates same-day cache restoration or permits an empty bootstrap only before the 10:00 New York session. Scheduled alerts checkpoint pending intent before Telegram delivery. Actions cache is not a transactional database; loss of same-day cache stops the monitor and requires manual reconciliation.
 
+## Broker and instrument abstraction
+
+The domain layer is being separated from provider integrations:
+
+- `instruments.py` defines asset classes and an `InstrumentSpec` containing tick size, tick value, tick-value currency, quantity unit, and venue-specific minimum/step/maximum quantity constraints.
+- `sizing.py` exposes instrument-aware sizing and stop-risk calculations. Tick economics and an explicit conversion rate are required; the system does not infer CFD lot values from equity/share assumptions.
+- `execution.py` defines broker-neutral account, quote, order, result, position, and asynchronous `BrokerAdapter` contracts.
+- Execution modes are explicit. Broker submission is rejected in disabled/paper modes; demo mode requires a demo account; live mode requires a separate explicit enable flag and a live account.
+
+A broker adapter is responsible for mapping canonical symbols to broker symbols, retrieving actual contract specifications, translating order semantics, and reconciling broker order/position state. Strategy code must not import broker SDKs. A provider without a supported order API remains usable through market-data and alert/manual workflows.
+
+These are domain contracts, not completed broker integrations. No broker adapter currently places orders, and no claim of cross-broker compatibility is made until each adapter is implemented and tested against its broker's demo environment.
+
 ## Current boundaries
 
 - No broker API, order placement, fill ingestion, or position reconciliation.
