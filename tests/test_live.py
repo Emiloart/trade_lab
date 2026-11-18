@@ -161,3 +161,22 @@ def test_window_is_new_york_time_in_summer(tmp_path, now):
     # date, which proves the window gate passed and the freshness gate ran.
     h = Harness(tmp_path)
     assert h.run(now).status == "stale_data"
+
+
+def test_uncertain_telegram_delivery_is_recorded_and_not_retried(tmp_path):
+    h = Harness(tmp_path)
+
+    def uncertain(_text):
+        raise NotifyError("request timed out", delivery_uncertain=True)
+
+    result = run_once(
+        pd.Timestamp("2026-11-18 16:17:00+00:00"),
+        h.cfg,
+        h.store,
+        h.fetch,
+        uncertain,
+    )
+    assert result.status == "delivery_unknown"
+    assert h.store.day_closed(DAY)
+    assert h.store.entries(DAY)[0]["status"] == "delivery_unknown"
+    assert h.run("2026-11-18 16:18:00+00:00").status == "already_closed"
