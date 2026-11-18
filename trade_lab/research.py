@@ -5,15 +5,17 @@ then evaluated on subsequent test intervals, which do not participate in selecti
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import date
 
 import pandas as pd
 
 from .backtest import BacktestCosts, performance_summary, run_backtest
-from .config import AccountRiskConfig, StrategyParameters
+from .config import AccountRiskConfig, StrategyConfig, StrategyParameters
 from .instruments import InstrumentSpec
 from .sessions import NY, in_window
 from .strategy import Signal, signal_for_bar
@@ -82,6 +84,11 @@ def _summary_for_range(
     return performance_summary(selected)
 
 
+def _config_fingerprint(config: StrategyParameters) -> str:
+    canonical = json.dumps(asdict(config), sort_keys=True, default=str, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 def _selection_key(summary: Mapping[str, float | int]) -> tuple[float, float, int]:
     expectancy = float(summary["expectancy_r"])
     profit_factor = float(summary["profit_factor"])
@@ -147,8 +154,34 @@ def run_walk_forward_research(
                     trades, window.validation_start, window.validation_end
                 )
                 evaluated.append((variant, validation))
+                variant_risk = risk or (
+                    AccountRiskConfig(
+                        variant.config.account_size,
+                        variant.config.risk_pct,
+                        variant.config.max_daily_loss_pct,
+                    )
+                    if isinstance(variant.config, StrategyConfig)
+                    else AccountRiskConfig()
+                )
                 output.append({
                     "symbol": symbol, "window": window_number, "variant": variant.name,
+                    "config_hash": _config_fingerprint(variant.config),
+                    "data_start": bars.index[0].isoformat(),
+                    "data_end": bars.index[-1].isoformat(),
+                    "data_bars": len(bars),
+                    "instrument_tick_size": instrument.tick_size,
+                    "instrument_tick_value": instrument.tick_value,
+                    "instrument_tick_value_currency": instrument.tick_value_currency,
+                    "instrument_quantity_unit": instrument.quantity_unit,
+                    "instrument_min_quantity": instrument.min_quantity,
+                    "instrument_quantity_step": instrument.quantity_step,
+                    "instrument_max_quantity": instrument.max_quantity,
+                    "spread_points": costs[symbol].spread_points,
+                    "slippage_points": costs[symbol].slippage_points,
+                    "commission_per_unit": costs[symbol].commission_per_unit,
+                    "value_to_account_rate": rates.get(symbol, 1.0),
+                    "account_size": variant_risk.account_size,
+                    "risk_pct": variant_risk.risk_pct,
                     "role": "candidate", "train_start": window.train_start.isoformat(),
                     "train_end": window.train_end.isoformat(),
                     "validation_start": window.validation_start.isoformat(),
@@ -167,8 +200,23 @@ def run_walk_forward_research(
             test = _summary_for_range(test_trades, window.test_start, window.test_end)
             output.append({
                 "symbol": symbol, "window": window_number,
-                "variant": selected_variant.name, "role": "selected_test",
-                "selected_on": "validation_expectancy_r",
+                "variant": selected_variant.name,
+                "config_hash": _config_fingerprint(selected_variant.config),
+                "data_start": bars.index[0].isoformat(),
+                "data_end": bars.index[-1].isoformat(),
+                "data_bars": len(bars),
+                "instrument_tick_size": instrument.tick_size,
+                "instrument_tick_value": instrument.tick_value,
+                "instrument_tick_value_currency": instrument.tick_value_currency,
+                "instrument_quantity_unit": instrument.quantity_unit,
+                "instrument_min_quantity": instrument.min_quantity,
+                "instrument_quantity_step": instrument.quantity_step,
+                "instrument_max_quantity": instrument.max_quantity,
+                "spread_points": costs[symbol].spread_points,
+                "slippage_points": costs[symbol].slippage_points,
+                "commission_per_unit": costs[symbol].commission_per_unit,
+                "value_to_account_rate": rates.get(symbol, 1.0),
+                "role": "selected_test", "selected_on": "validation_expectancy_r",
                 "train_start": window.train_start.isoformat(),
                 "train_end": window.train_end.isoformat(),
                 "validation_start": window.validation_start.isoformat(),
