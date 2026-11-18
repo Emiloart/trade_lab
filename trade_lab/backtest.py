@@ -11,6 +11,8 @@ import pandas as pd
 
 from .config import StrategyConfig
 from .data import normalize_bars
+from .instruments import InstrumentSpec
+from .sizing import quantity_for_instrument_risk
 from .sessions import NY, in_window
 from .strategy import LONG, first_signal, prepare
 
@@ -74,6 +76,8 @@ def run_backtest(
     cfg: StrategyConfig | None = None,
     start_date: date | None = None,
     costs: BacktestCosts | None = None,
+    instrument: InstrumentSpec | None = None,
+    value_to_account_rate: float = 1.0,
 ) -> pd.DataFrame:
     """Simulate one first-signal trade per NY date with configurable execution costs.
 
@@ -100,6 +104,8 @@ def run_backtest(
     ny_dates = prepared.index.tz_convert(NY).date
     trades: list[dict[str, object]] = []
     fill_cost = execution.spread_points / 2.0 + execution.slippage_points
+    if instrument is not None and not isinstance(instrument, InstrumentSpec):
+        raise TypeError("instrument must be an InstrumentSpec")
 
     for day in sorted(set(ny_dates)):
         if start_date is not None and day < start_date:
@@ -113,8 +119,38 @@ def run_backtest(
             pos for pos, bar_day in enumerate(ny_dates)
             if bar_day == day and pos > entry_position and in_window(prepared.index[pos], config)
         ]
-        risk_per_unit = signal.risk_distance + execution.total_risk_cost_per_unit
-        units = config.risk_dollars / risk_per_unit
+        if instrument is None:
+            risk_per_unit = signal.risk_distance + execution.total_risk_cost_per_unit
+            units = config.risk_dollars / risk_per_unit
+        else:
+            tick_value_per_price_point = (
+                instrument.tick_value / instrument.tick_size * value_to_account_rate
+            )
+            commission_price_points = (
+                2.0 * execution.commission_per_unit / tick_value_per_price_point
+            )
+            effective_stop_distance = (
+                signal.risk_distance
+                + execution.spread_points
+                + 2.0 * execution.slippage_points
+                + commission_price_points
+            )
+            units = quantity_for_instrument_risk(
+                config.risk_dollars,
+                effective_stop_distance,
+                instrument,
+                value_to_account_rate,
+            )
+            if units <= 0:
+                continue
+            risk_per_unit = (
+                instrument.risk_per_quantity(signal.risk_distance, value_to_account_rate)
+                + instrument.price_cost_per_quantity(
+                    execution.spread_points + 2.0 * execution.slippage_points,
+                    value_to_account_rate,
+                )
+                + 2.0 * execution.commission_per_unit
+            )
         entry_fill = signal.entry + signal.direction * fill_cost
         exit_price: float | None = None
         exit_fill: float | None = None
@@ -143,9 +179,29 @@ def run_backtest(
 
         if exit_fill is not None and last_mark is not None:
             raw_exit = exit_price if exit_price is not None else last_mark
-            gross_pnl = (raw_exit - signal.entry) * signal.direction * units
-            commission = 2.0 * execution.commission_per_unit * units
-            net_pnl = (exit_fill - entry_fill) * signal.direction * units - commission
+            if instrument is None:
+                gross_pnl = (raw_exit - signal.entry) * signal.direction * units
+                net_pnl = (
+                    (exit_fill - entry_fill) * signal.direction * units
+                    - 2.0 * execution.commission_per_unit * units
+                )
+            else:
+                account_value_per_point = (
+                    instrument.tick_value / instrument.tick_size * value_to_account_rate
+                )
+                gross_pnl = (
+                    (raw_exit - signal.entry)
+                    * signal.direction
+                    * account_value_per_point
+                    * units
+                )
+                net_pnl = (
+                    (exit_fill - entry_fill)
+                    * signal.direction
+                    * account_value_per_point
+                    * units
+                    - 2.0 * execution.commission_per_unit * units
+                )
             modeled_costs = gross_pnl - net_pnl
             mark_price = float(raw_exit)
         else:
@@ -159,6 +215,8 @@ def run_backtest(
         trades.append(
             {
                 "Date": day.isoformat(),
+                "Symbol": instrument.symbol if instrument is not None else "",
+                "Quantity_Unit": instrument.quantity_unit if instrument is not None else "unit",
                 "Entry_Time": signal.time.isoformat(),
                 "Exit_Time": exit_time.isoformat() if exit_time is not None else "",
                 "Direction": signal.side,
