@@ -53,6 +53,12 @@ and data source being tested.
   "test_days": 20,
   "step_days": 20,
   "final_holdout_days": 60,
+  "minimum_validation_trades": 30,
+  "minimum_test_trades": 30,
+  "confidence_level": 0.95,
+  "bootstrap_samples": 2000,
+  "bootstrap_block_length": 5,
+  "cost_stress_multipliers": [1.0, 1.5, 2.0],
   "risk": {
     "account_size": 10000,
     "risk_pct": 0.01,
@@ -61,6 +67,7 @@ and data source being tested.
   "variants": [
     {
       "name": "baseline",
+      "sensitivity_group": "pullback-depth-neighborhood",
       "strategy": {
         "atr_period": 14,
         "atr_stop_mult": 1.5,
@@ -69,6 +76,7 @@ and data source being tested.
     },
     {
       "name": "shallow-pullback",
+      "sensitivity_group": "pullback-depth-neighborhood",
       "strategy": {
         "atr_period": 14,
         "filters": {
@@ -137,3 +145,33 @@ Validation warnings do not automatically reject a dataset. Review them against
 the actual instrument's trading calendar before interpreting results. The
 artifact directory is part of the research result and should be retained with
 the CSV report.
+
+## Statistical robustness settings
+
+The following top-level fields are optional. Defaults are shown:
+
+- `minimum_validation_trades`: 30 closed trades required in the validation
+  sample before the selected candidate can pass.
+- `minimum_test_trades`: 30 closed trades required in test and final holdout.
+- `confidence_level`: 0.95 percentile interval confidence level.
+- `bootstrap_samples`: 2,000 moving-block bootstrap resamples; minimum 200.
+- `bootstrap_block_length`: 5 consecutive New York trading dates per sampled
+  block.
+- `cost_stress_multipliers`: `[1.0, 1.5, 2.0]`; unique multipliers at or above
+  1.0, including 1.0. Spread, slippage, and commission are all scaled.
+
+Each variant may optionally set `sensitivity_group`. Variants in the same
+group are treated as a declared parameter neighborhood for descriptive
+sensitivity reporting. Assign groups before examining results. The report
+includes block-bootstrap intervals, the Bonferroni-adjusted validation
+interval across the candidate family, sample counts, sensitivity-group
+dispersion, cost-stress metrics, and explicit `ACCEPT`/`REJECT` decisions
+with reason codes.
+
+The selected configuration is ranked by its Bonferroni-adjusted validation
+expectancy lower bound. Acceptance additionally requires minimum validation
+and evaluation trade counts, a positive evaluation-period expectancy lower
+bound, and a positive lower bound under the maximum cost-stress multiplier.
+A reported `ACCEPT` is a protocol outcome, not a claim of future profitability.
+See [the statistical robustness protocol](research.md#statistical-robustness-protocol)
+for interpretation and restrictions.
