@@ -67,22 +67,44 @@ jobs:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
           STATE_FILE: .state/state.json
+          TRADE_LAB_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
         shell: bash
         run: |
           if [ "${{ github.event_name }}" = "schedule" ]; then
-            python -m trade_lab.live
+            python -m trade_lab.live --prepare-alert
           else
             python -m trade_lab.live --dry-run
           fi
 
-      # Never manufacture an empty state file or save after a failed run.
-      # A successful scheduled invocation may persist state only if the
-      # application actually produced/updated a valid state file.
-      - name: Save state for subsequent scheduled runs
+      # Commit the pending intent to the cache before making the external
+      # Telegram side effect. If the runner dies after delivery, the next run
+      # sees the pending intent and quarantines it instead of sending again.
+      - name: Checkpoint state before Telegram delivery
         if: success() && github.event_name == 'schedule' && hashFiles('.state/state.json') != ''
         uses: actions/cache/save@v4
         with:
           path: |
             .state/state.json
             .state/state.json.bak
-          key: ${{ steps.state.outputs.key }}
+          key: ${{ steps.state.outputs.key }}-checkpoint
+
+      - name: Deliver checkpointed alert
+        if: success() && github.event_name == 'schedule'
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+          STATE_FILE: .state/state.json
+          TRADE_LAB_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: python -m trade_lab.live --deliver-pending
+
+      # Final cache contains the confirmed sent/rejected/unknown outcome.
+      # If the runner is interrupted during delivery, the earlier checkpoint
+      # remains and the next run will not automatically resend it.
+      - name: Save final state for subsequent scheduled runs
+        if: success() && github.event_name == 'schedule' && hashFiles('.state/state.json') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .state/state.json
+            .state/state.json.bak
+          key: ${{ steps.state.outputs.key }}-final
