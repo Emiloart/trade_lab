@@ -84,7 +84,9 @@ def test_research_emits_candidates_and_separate_selected_test_rows():
     assert set(result["role"]) == {"candidate", "selected_test"}
     selected = result.loc[result["role"] == "selected_test"]
     assert len(selected) == 3
-    assert set(selected["selected_on"]) == {"validation_expectancy_r"}
+    assert set(selected["selected_on"]) == {
+        "validation_bonferroni_adjusted_block_bootstrap_lower_bound"
+    }
     assert selected["test_closed"].notna().all()
 
 
@@ -171,7 +173,9 @@ def test_final_holdout_is_reserved_after_walk_forward_development():
     rolling = result.loc[result["role"] == "selected_test"]
     assert len(holdout) == 1
     assert holdout.iloc[0]["holdout_start"] > rolling["test_end"].max()
-    assert holdout.iloc[0]["selected_on"] == "aggregate_validation_expectancy_r"
+    assert holdout.iloc[0]["selected_on"] == (
+        "aggregate_validation_bonferroni_adjusted_block_bootstrap_lower_bound"
+    )
     assert pd.notna(holdout.iloc[0]["holdout_closed"])
 
 
