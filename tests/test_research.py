@@ -54,6 +54,7 @@ def test_walk_forward_requires_enough_sessions():
             {"ETF": BacktestCosts(spread_points=0.02)},
             [ResearchVariant("baseline", StrategyConfig(atr_period=1))],
             train_days=3, validation_days=2, test_days=2,
+            data_sources={"ETF": "fixture: synthetic OHLCV 5m"},
         )
 
 
@@ -110,6 +111,9 @@ def test_reclaim_outcomes_measure_forward_excursion_in_r():
     assert first["mfe_r"] == pytest.approx(1.5)
     assert first["mae_r"] == pytest.approx(0.2)
     assert first["follow_through_r"] == pytest.approx(1.0)
+    assert first["pullback_depth_atr"] == pytest.approx(0.1)
+    assert first["reclaim_close_distance_atr"] == pytest.approx(1.0)
+    assert first["reclaim_candle_range_atr"] == pytest.approx(1.3)
 
 
 def test_reclaim_outcomes_reject_invalid_horizons():
@@ -159,6 +163,7 @@ def test_final_holdout_is_reserved_after_walk_forward_development():
         validation_days=2,
         test_days=2,
         final_holdout_days=2,
+        data_sources={"ETF": "fixture: synthetic OHLCV 5m"},
     )
     holdout = result.loc[result["role"] == "final_holdout"]
     rolling = result.loc[result["role"] == "selected_test"]
@@ -179,4 +184,18 @@ def test_final_holdout_must_leave_development_sessions():
             validation_days=1,
             test_days=1,
             final_holdout_days=5,
+            data_sources={"ETF": "fixture: synthetic OHLCV 5m"},
+        )
+
+def test_research_requires_explicit_data_provenance():
+    with pytest.raises(ValueError, match="explicit data source"):
+        run_walk_forward_research(
+            {"ETF": bars_for_sessions()},
+            {"ETF": instrument("ETF")},
+            {"ETF": BacktestCosts()},
+            [ResearchVariant("baseline", StrategyConfig(atr_period=1))],
+            train_days=4,
+            validation_days=2,
+            test_days=2,
+            data_sources={},
         )

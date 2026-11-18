@@ -109,7 +109,7 @@ def run_walk_forward_research(
     step_days: int | None = None,
     value_to_account_rates: Mapping[str, float] | None = None,
     risk: AccountRiskConfig | None = None,
-    data_sources: Mapping[str, str] | None = None,
+    data_sources: Mapping[str, str],
     final_holdout_days: int = 0,
 ) -> pd.DataFrame:
     """Evaluate symbols on shared calendar windows and explicit per-symbol costs.
@@ -134,7 +134,7 @@ def run_walk_forward_research(
         raise ValueError("final_holdout_days must be a non-negative integer")
 
     rates = value_to_account_rates or {}
-    sources = data_sources or {}
+    sources = data_sources
     sessions_by_symbol: dict[str, set[date]] = {}
     for symbol, bars in datasets.items():
         if symbol not in instruments or symbol not in costs:
@@ -148,8 +148,8 @@ def run_walk_forward_research(
             raise ValueError(f"{symbol} requires non-empty timezone-aware bars")
         if bars.index.has_duplicates or not bars.index.is_monotonic_increasing:
             raise ValueError(f"{symbol} bars must be sorted with unique timestamps")
-        if symbol in sources and not sources[symbol].strip():
-            raise ValueError(f"{symbol} data source description cannot be empty")
+        if symbol not in sources or not sources[symbol].strip():
+            raise ValueError(f"{symbol} requires an explicit data source description")
         sessions_by_symbol[symbol] = set(bars.index.tz_convert(NY).date)
 
     common_sessions = sorted(set.intersection(*sessions_by_symbol.values()))
@@ -203,7 +203,13 @@ def run_walk_forward_research(
             )
             metadata_by_variant[variant.name] = {
                 "config_hash": _config_fingerprint(variant.config),
-                "data_source": sources.get(symbol, "unspecified"),
+                "data_source": sources[symbol],
+                "data_hash": hashlib.sha256(
+                    (
+                        "|".join(map(str, bars.columns))
+                        + pd.util.hash_pandas_object(bars, index=True).values.tobytes().hex()
+                    ).encode("utf-8")
+                ).hexdigest(),
                 "data_start": bars.index[0].isoformat(),
                 "data_end": bars.index[-1].isoformat(),
                 "data_bars": len(bars),
@@ -358,6 +364,20 @@ def measure_reclaim_outcomes(
                     "risk_distance": signal.risk_distance,
                     "horizon_bars": horizon,
                     "horizon_end_time": future.index[-1].isoformat(),
+                    "pullback_depth_atr": (
+                        max(0.0, float(bar["VWAP"]) - float(bar["Low"]))
+                        if direction == 1
+                        else max(0.0, float(bar["High"]) - float(bar["VWAP"]))
+                    ) / float(bar["ATR"]),
+                    "vwap_slope_atr": float(bar.get("VWAP_SLOPE_ATR", float("nan"))),
+                    "atr_pct": float(bar.get("ATR_PCT", float("nan"))),
+                    "reclaim_close_distance_atr": (
+                        direction * (float(bar["Close"]) - float(bar["VWAP"]))
+                        / float(bar["ATR"])
+                    ),
+                    "reclaim_candle_range_atr": (
+                        float(bar["High"]) - float(bar["Low"])
+                    ) / float(bar["ATR"]),
                     "follow_through_r": (
                         (float(future["Close"].iloc[-1]) - signal.entry)
                         * direction
@@ -371,6 +391,8 @@ def measure_reclaim_outcomes(
         rows,
         columns=[
             "signal_time", "direction", "entry", "risk_distance", "horizon_bars",
-            "horizon_end_time", "follow_through_r", "mfe_r", "mae_r",
+            "horizon_end_time", "pullback_depth_atr", "vwap_slope_atr",
+            "atr_pct", "reclaim_close_distance_atr", "reclaim_candle_range_atr",
+            "follow_through_r", "mfe_r", "mae_r",
         ],
     )

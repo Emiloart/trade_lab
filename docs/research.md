@@ -29,7 +29,9 @@ rule. Choose horizons before examining results; do not tune on final holdout dat
 ## Walk-forward research
 
 Use `trade_lab.research.run_walk_forward_research` with symbol-keyed OHLCV
-datasets, instrument specifications, and execution costs. The runner uses the
+datasets, instrument specifications, execution costs, and an explicit data_sources
+label for every symbol. It records a SHA-256 fingerprint of each normalized
+dataset alongside its source label and data bounds. The runner uses the
 intersection of observed New York sessions so every symbol is evaluated over
 the same train/validation/test date boundaries. Each symbol/variant backtest
 is computed once and reused across the windows. Supply an explicit
@@ -61,12 +63,13 @@ report = run_walk_forward_research(
     },
     variants=variants, train_days=120, validation_days=20,
     test_days=20, step_days=20, final_holdout_days=60,
+    data_sources={"SYMBOL_A": "vendor A, 5m, adjusted: no",
+                  "SYMBOL_B": "vendor B, 5m, adjusted: no"},
 )
 report.to_csv("walk_forward_report.csv", index=False)
 ```
 
-Pass `data_sources` to label each dataset in the output; omitted labels are
-reported as `unspecified`. The report also records data bounds and bar count,
+The report records data source labels, dataset fingerprints, data bounds and bar count,
 a strategy configuration hash, contract economics, cost assumptions, and
 account-risk assumptions.
 
@@ -74,6 +77,9 @@ When `final_holdout_days` is positive, the last N shared sessions are excluded
 from rolling development windows. The runner chooses one final variant using
 aggregate validation expectancy and emits a separate `final_holdout` row.
 That holdout is not used to tune or select the configuration.
+
+Data-source labels should identify the vendor or collection method, symbol,
+interval, and any relevant adjustment policy.
 
 The caller must document each symbol's actual instrument specification,
 account-currency conversion rate, spread, slippage, commission, and data
