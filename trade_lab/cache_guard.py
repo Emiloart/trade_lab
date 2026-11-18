@@ -25,6 +25,9 @@ def guard_cache(
     run, or a lost/evicted cache after alerts were sent. The safe response is
     to stop rather than silently start with empty alert history.
     """
+    if now.tzinfo is None or now.utcoffset() is None:
+        raise ValueError("now must be timezone-aware")
+
     if matched_key:
         expected_prefix = f"trade-state-{now.astimezone(NEW_YORK).date().isoformat()}-"
         if not matched_key.startswith(expected_prefix):
@@ -35,8 +38,6 @@ def guard_cache(
         interrupted = store.mark_interrupted_pending()
         return "restored_with_interrupted_delivery" if interrupted else "restored"
 
-    if now.tzinfo is None or now.utcoffset() is None:
-        raise ValueError("now must be timezone-aware")
     local_time = now.astimezone(NEW_YORK).time().replace(tzinfo=None)
     if local_time >= session_start:
         raise StateError(
