@@ -23,6 +23,7 @@ def test_initialize_writes_a_valid_first_run_state(tmp_path):
     assert store.initialize() is False
     store.validate_cached_state()
     assert json.loads(store.path.read_text()) == {"days": {}, "version": 1}
+    assert json.loads(store.backup_path.read_text()) == {"days": {}, "version": 1}
 
 
 def test_state_backup_preserves_last_known_good_version(tmp_path):
@@ -62,6 +63,7 @@ def test_cached_state_must_exist(tmp_path):
         ),
         '{"version": 1, "days": {"20261118": {"entries": [], "realized_pnl": 0}}}',
         '{"version": 1, "days": {"2026-11-18": {"entries": [], "realized_pnl": 1e999}}}',
+        '{"version": 1.0, "days": {}}',
     ],
 )
 def test_state_rejects_invalid_nested_values(tmp_path, payload):
@@ -97,3 +99,12 @@ def test_delivery_unknown_closes_day_and_is_persisted(tmp_path):
     entry = store.entries("2026-11-18")[0]
     assert entry["status"] == "delivery_unknown"
     assert "message" not in entry
+
+
+def test_corrupt_primary_is_not_silently_replaced_by_valid_backup(tmp_path):
+    store = StateStore(tmp_path / "state.json")
+    store.record_pnl("2026-11-18", -50)
+    store.path.write_text("{corrupt")
+    with pytest.raises(StateError, match="malformed"):
+        store.realized_pnl("2026-11-18")
+    assert json.loads(store.backup_path.read_text()) == {"days": {}, "version": 1}
