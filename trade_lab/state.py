@@ -170,7 +170,13 @@ class StateStore:
             if self.path.exists():
                 # Preserve the last known-good primary before replacing it.
                 previous = self.path.read_bytes()
-                self._atomic_write(self.backup_path, previous)
+            else:
+                # Even the first mutation needs a recovery marker: if the
+                # primary is later lost, an empty install must not be assumed.
+                previous = (
+                    json.dumps({"version": SCHEMA_VERSION, "days": {}}, sort_keys=True) + "\\n"
+                ).encode()
+            self._atomic_write(self.backup_path, previous)
             self._atomic_write(self.path, payload)
         except OSError as exc:
             raise StateError(f"Could not persist state safely to {self.path}: {exc}") from exc
