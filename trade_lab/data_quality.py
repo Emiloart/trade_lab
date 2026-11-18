@@ -50,7 +50,10 @@ def validate_research_bars(
         ))
 
     numeric = bars[OHLCV].apply(pd.to_numeric, errors="coerce")
-    invalid = ~pd.Series(\n        np.isfinite(numeric.to_numpy(dtype=float)).all(axis=1), index=bars.index\n    )\n    if invalid.any():
+    invalid = ~pd.Series(
+        np.isfinite(numeric.to_numpy(dtype=float)).all(axis=1), index=bars.index
+    )
+    if invalid.any():
         findings.append(DataFinding(
             "non_finite_values", "error", "OHLCV contains missing or non-finite values",
             int(invalid.sum()),
