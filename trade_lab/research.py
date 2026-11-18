@@ -351,11 +351,16 @@ def run_walk_forward_research(
                 bootstrap_samples=bootstrap_samples, block_length=bootstrap_block_length,
                 family_size=1, seed=2729 + window_number,
             )
-            reasons = rejection_reasons(
+            validation_reasons = rejection_reasons(
+                selected_validation_stats, minimum_trades=minimum_validation_trades
+            )
+            test_reasons = rejection_reasons(
                 test_stats, minimum_trades=minimum_test_trades
             )
-            if int(selected_validation_stats["sample_trades"]) < minimum_validation_trades:
-                reasons.insert(0, "INSUFFICIENT_VALIDATION_TRADES")
+            reasons = [
+                *(f"VALIDATION_{reason}" for reason in validation_reasons),
+                *(f"TEST_{reason}" for reason in test_reasons),
+            ]
             stress_metrics: dict[str, object] = {}
             max_multiplier = max(cost_stress_multipliers)
             max_stress_stats: dict[str, float | int] = {}
@@ -454,11 +459,16 @@ def run_walk_forward_research(
                     bootstrap_samples=bootstrap_samples,
                     block_length=bootstrap_block_length, family_size=1, seed=5729,
                 )
+                validation_reasons = rejection_reasons(
+                    final_validation_stats, minimum_trades=minimum_validation_trades
+                )
                 holdout_reasons = rejection_reasons(
                     holdout_stats, minimum_trades=minimum_test_trades
                 )
-                if int(final_validation_stats["sample_trades"]) < minimum_validation_trades:
-                    holdout_reasons.insert(0, "INSUFFICIENT_VALIDATION_TRADES")
+                holdout_reasons = [
+                    *(f"VALIDATION_{reason}" for reason in validation_reasons),
+                    *(f"HOLDOUT_{reason}" for reason in holdout_reasons),
+                ]
                 holdout_stress_metrics: dict[str, object] = {}
                 maximum_holdout_stress: dict[str, float | int] = {}
                 for multiplier, stress_trades in stress_trades_by_variant[final_variant.name].items():
