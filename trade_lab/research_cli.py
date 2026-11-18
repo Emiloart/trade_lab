@@ -323,7 +323,8 @@ def run_from_config(
         or destination == artifacts
         or artifacts in destination.parents
         or any(artifacts in path.parents for path in input_paths)
-    ):        raise ValueError("artifact directory must not overwrite or contain an input or report")
+    ):
+        raise ValueError("artifact directory must not overwrite or contain an input or report")
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary_name: str | None = None
     try:
