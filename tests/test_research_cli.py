@@ -55,7 +55,7 @@ def test_cli_runs_and_writes_research_report(tmp_path, capsys):
     assert report["data_hash"].str.len().eq(64).all()
     artifacts = output.with_suffix(".artifacts")
     manifest = json.loads((artifacts / "manifest.json").read_text(encoding="utf-8"))
-    snapshot = next((artifacts / "datasets").glob("ETF-*.csv"))
+    snapshot = next((artifacts / "datasets").glob("*.csv"))
     source = (tmp_path / "fixture.csv").read_bytes()
     assert snapshot.read_bytes() == source
     assert manifest["datasets"]["ETF"]["sha256"] == hashlib.sha256(source).hexdigest()
