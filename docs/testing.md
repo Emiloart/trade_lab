@@ -27,7 +27,7 @@ python -m pytest -q
 ruff check trade_lab tests
 ```
 
-The CI workflow runs the same pytest and Ruff checks on pushes to main and refactor branches, pull requests, and manual dispatches.
+The CI workflow at `.github/workflows/ci.yml` runs pytest, Ruff, and `scripts/verify_docs.py` on pushes to main and refactor branches, pull requests, and manual dispatches. The documentation verifier checks local Markdown links, executable Python module/script paths and Ruff targets in fenced commands, CLI options, environment-variable references, the package module inventory, and workflow file references.
 
 ## Required checks for state and workflow changes
 
@@ -39,7 +39,7 @@ When changing persistence or Actions cache behavior, verify at least:
 - A successful scheduled run can save an application-created state file.
 - A failed run cannot save a newly manufactured empty state file.
 - A manual dry run does not write or save scheduled state.
-- A cache miss with no state mutation does not create a cache entry containing an empty placeholder.
+- A cache miss before 10:00 New York time may initialize and checkpoint the empty first-run state.\n- A cache miss at or after 10:00 New York time fails closed.\n- A pending alert is checkpointed before Telegram is called.\n- A pending alert restored from an earlier workflow attempt becomes `delivery_unknown` and is not sent again automatically.\n- A successful send is followed by a final cache save; if that save fails, the pre-send pending checkpoint remains.
 
 The workflow's conditional save is reviewed in source; GitHub Actions must also be checked for the exact commit after it runs.
 
