@@ -37,6 +37,9 @@ def prepare(df: pd.DataFrame, cfg: StrategyConfig) -> pd.DataFrame:
     out = df.sort_index().copy()
     out["VWAP"] = session_vwap(out)
     out["ATR"] = atr(out, cfg.atr_period)
+    lookback = cfg.filters.vwap_slope_lookback
+    out["VWAP_SLOPE_ATR"] = out["VWAP"].diff(lookback) / out["ATR"]
+    out["ATR_PCT"] = out["ATR"] / out["Close"].abs() * 100.0
     return out
 
 
@@ -54,9 +57,22 @@ def signal_for_bar(
         return None
 
     close = float(bar["Close"])
+    low = float(bar["Low"])
+    high = float(bar["High"])
+    filters = cfg.filters
+    atr_pct = bar.get("ATR_PCT", np.nan)
+    slope = bar.get("VWAP_SLOPE_ATR", np.nan)
+    if filters.min_atr_pct is not None and (pd.isna(atr_pct) or atr_pct < filters.min_atr_pct):
+        return None
+    if filters.max_atr_pct is not None and (pd.isna(atr_pct) or atr_pct > filters.max_atr_pct):
+        return None
     risk = cfg.atr_stop_mult * float(bar_atr)
 
-    if close > vwap and float(bar["Low"]) <= vwap * (1 + cfg.vwap_tolerance):
+    if close > vwap and low <= vwap * (1 + cfg.vwap_tolerance):
+        if filters.max_pullback_atr is not None and max(0.0, float(vwap) - low) / float(bar_atr) > filters.max_pullback_atr:
+            return None
+        if filters.min_directional_vwap_slope_atr is not None and (pd.isna(slope) or float(slope) < filters.min_directional_vwap_slope_atr):
+            return None
         return Signal(
             time=ts,
             direction=LONG,
@@ -65,7 +81,11 @@ def signal_for_bar(
             target=close + risk * cfg.reward_risk,
             risk_distance=risk,
         )
-    if close < vwap and float(bar["High"]) >= vwap * (1 - cfg.vwap_tolerance):
+    if close < vwap and high >= vwap * (1 - cfg.vwap_tolerance):
+        if filters.max_pullback_atr is not None and max(0.0, high - float(vwap)) / float(bar_atr) > filters.max_pullback_atr:
+            return None
+        if filters.min_directional_vwap_slope_atr is not None and (pd.isna(slope) or -float(slope) < filters.min_directional_vwap_slope_atr):
+            return None
         return Signal(
             time=ts,
             direction=SHORT,

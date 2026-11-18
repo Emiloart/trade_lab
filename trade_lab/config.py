@@ -5,13 +5,18 @@ from __future__ import annotations
 import math
 import os
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import time
+
+from .filters import StrategyFilters
 
 
 @dataclass(frozen=True)
 class StrategyConfig:
     """All tunable parameters in one immutable object."""
+
+    # Optional research filters; disabled by default.
+    filters: StrategyFilters = field(default_factory=StrategyFilters)
 
     # Account and risk
     account_size: float = 10_000.0

@@ -3,6 +3,7 @@ import pytest
 from conftest import make_bars
 
 from trade_lab.config import StrategyConfig
+from trade_lab.filters import StrategyFilters
 from trade_lab.strategy import LONG, SHORT, latest_signal, prepare, signal_for_bar
 
 CFG = StrategyConfig()
@@ -80,3 +81,36 @@ def test_latest_signal_on_empty_frame():
     cfg = StrategyConfig(atr_period=3)
     prepared = prepare(_flat_then_pullback("2026-11-18 15:30"), cfg).iloc[0:0]
     assert latest_signal(prepared, cfg) is None
+
+
+def test_optional_filters_disabled_by_default():
+    cfg = StrategyConfig(atr_period=3)
+    prepared = prepare(_flat_then_pullback("2026-11-18 15:30"), cfg)
+    assert latest_signal(prepared, cfg) is not None
+
+def test_max_pullback_depth_filter_rejects_deep_reclaim():
+    cfg = StrategyConfig(filters=StrategyFilters(max_pullback_atr=0.1))
+    assert signal_for_bar(TS, bar(100.5, 99.0, 100.7, 100.0, 0.4), cfg) is None
+
+def test_directional_vwap_slope_filter_requires_aligned_slope():
+    cfg = StrategyConfig(filters=StrategyFilters(min_directional_vwap_slope_atr=0.2))
+    aligned = bar(100.5, 99.9, 100.7, 100.0, 0.4)
+    aligned["VWAP_SLOPE_ATR"] = 0.3
+    opposed = aligned.copy()
+    opposed["VWAP_SLOPE_ATR"] = -0.3
+    assert signal_for_bar(TS, aligned, cfg) is not None
+    assert signal_for_bar(TS, opposed, cfg) is None
+
+def test_volatility_filter_rejects_out_of_range_atr_pct():
+    cfg = StrategyConfig(filters=StrategyFilters(min_atr_pct=0.5, max_atr_pct=1.0))
+    candidate = bar(100.5, 99.9, 100.7, 100.0, 0.4)
+    candidate["ATR_PCT"] = 0.7
+    assert signal_for_bar(TS, candidate, cfg) is not None
+    candidate["ATR_PCT"] = 0.2
+    assert signal_for_bar(TS, candidate, cfg) is None
+
+def test_strategy_filter_validation():
+    with pytest.raises(ValueError, match="min_atr_pct"):
+        StrategyFilters(min_atr_pct=2.0, max_atr_pct=1.0)
+    with pytest.raises(ValueError, match="positive integer"):
+        StrategyFilters(vwap_slope_lookback=0)

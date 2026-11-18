@@ -36,3 +36,8 @@ Defaults are ATR period 14, stop multiplier 1.5, reward/risk 1.3, and VWAP toler
 The shared `first_signal` scans in-window bars chronologically and returns the first qualifying signal for a New York calendar date. At most one signal is selected per date. Live monitoring and migrated backtests call this same function.
 
 A signal is a rule match, not proof of an executable trade. The live monitor filters incomplete and stale bars; historical evaluation uses the supplied completed historical bars and does not recreate real-time data latency.
+
+
+## Optional research filters
+
+StrategyFilters exposes opt-in, instrument-independent criteria. All are disabled by default, preserving the baseline rule. max_pullback_atr limits VWAP penetration measured in ATR units. min_directional_vwap_slope_atr requires the VWAP change over vwap_slope_lookback bars, normalized by ATR, to align with trade direction. min_atr_pct and max_atr_pct constrain ATR divided by absolute close, expressed as a percentage. A filter requiring a missing feature rejects the candidate rather than silently passing it. These filters are experimental, not assumed improvements. Evaluate them independently and in combinations with chronological train/validation/test partitions and walk-forward windows; do not select thresholds on the final holdout. Report trade count, expectancy in R, drawdown, profit factor, and sensitivity to execution costs. Cross-instrument comparisons require verified instrument economics and realistic costs.
