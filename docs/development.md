@@ -30,7 +30,7 @@ ruff check .
 python scripts/verify_docs.py
 ```
 
-The GitHub Actions workflow `.github/workflows/ci.yml` installs the project with development dependencies and runs pytest, Ruff against the maintained package and tests, and `scripts/verify_docs.py`. A local pass does not replace reviewing the workflow result for the exact commit under test.
+The GitHub Actions workflow `.github/workflows/ci.yml` installs the project with development dependencies and runs repository-wide Ruff, pytest, and `scripts/verify_docs.py`. A local pass does not replace reviewing the workflow result for the exact commit under test.
 
 ## Code organization
 
