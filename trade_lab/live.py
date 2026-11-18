@@ -193,8 +193,8 @@ def main(argv: list[str] | None = None) -> int:
 
     token = os.environ.get("BOT_TOKEN", "")
     chat_id = os.environ.get("CHAT_ID", "")
-    if not (args.dry_run or args.prepare_alert) and not (token and chat_id):
-        log.error("BOT_TOKEN and CHAT_ID must be set (or use --dry-run/--prepare-alert)")
+    if not args.dry_run and not (token and chat_id):
+        log.error("BOT_TOKEN and CHAT_ID must be set (or use --dry-run)")
         return 2
 
     try:
