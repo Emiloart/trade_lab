@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 import pytest
 
+from trade_lab.market_data import MarketQuote
 from trade_lab.execution import (
     AccountEnvironment,
     AccountSnapshot,
@@ -9,7 +10,6 @@ from trade_lab.execution import (
     OrderRequest,
     OrderSide,
     OrderType,
-    Quote,
     assert_execution_allowed,
 )
 
@@ -57,5 +57,5 @@ def test_order_quantity_must_be_positive():
 
 def test_quote_requires_timezone_aware_timestamp():
     with pytest.raises(ValueError, match="timezone-aware"):
-        Quote("AAPL", 10, 10.1, datetime(2026, 11, 18))
-    Quote("AAPL", 10, 10.1, datetime(2026, 11, 18, tzinfo=timezone.utc))
+        MarketQuote("AAPL", 10, 10.1, datetime(2026, 11, 18))
+    MarketQuote("AAPL", 10, 10.1, datetime(2026, 11, 18, tzinfo=timezone.utc))
