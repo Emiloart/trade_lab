@@ -36,7 +36,7 @@ Live monitoring and historical simulation share `strategy.prepare()`, `strategy.
 
 Live: `Yahoo Finance → normalized QQQ bars → shared indicators → shared signal → NQ/QQQ reference conversion → CFD lot estimate → Telegram`.
 
-Backtest: `historical OHLCV bars → normalized UTC bars → shared indicators → shared first signal → explicit per-instrument OHLC execution simulation → trade ledger`.
+Backtest: `historical OHLCV bars → validated UTC bars → shared indicators → shared first signal → explicit per-instrument OHLC execution simulation → trade ledger`.
 
 Live freshness and in-progress-candle checks are real-time safeguards. Historical data is assumed to contain completed bars; this is a data assumption, not a simulated real-time feed.
 
