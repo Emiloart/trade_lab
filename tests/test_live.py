@@ -180,3 +180,64 @@ def test_uncertain_telegram_delivery_is_recorded_and_not_retried(tmp_path):
     assert h.store.day_closed(DAY)
     assert h.store.entries(DAY)[0]["status"] == "delivery_unknown"
     assert h.run("2026-11-18 16:18:00+00:00").status == "already_closed"
+
+
+def test_prepared_alert_is_persisted_without_sending(tmp_path):
+    h = Harness(tmp_path)
+    result = run_once(
+        pd.Timestamp("2026-11-18 16:17:00+00:00"),
+        h.cfg,
+        h.store,
+        h.fetch,
+        h.send,
+        defer_delivery=True,
+        run_id="workflow-42",
+    )
+    assert result.status == "delivery_prepared"
+    assert h.sent == []
+    assert h.store.day_closed(DAY)
+    pending = h.store.pending_delivery("workflow-42")
+    assert pending is not None
+    assert h.store.pending_delivery("another-run") is None
+
+
+def test_checkpointed_delivery_marks_sent(tmp_path):
+    from trade_lab.live import deliver_pending
+
+    h = Harness(tmp_path)
+    run_once(
+        pd.Timestamp("2026-11-18 16:17:00+00:00"),
+        h.cfg,
+        h.store,
+        h.fetch,
+        h.send,
+        defer_delivery=True,
+        run_id="workflow-43",
+    )
+    result = deliver_pending(h.store, h.send, "workflow-43")
+    assert result.status == "sent"
+    assert len(h.sent) == 1
+    assert h.store.entries(DAY)[0]["status"] == "sent"
+
+
+def test_uncertain_delivery_is_quarantined_not_retried(tmp_path):
+    from trade_lab.live import deliver_pending
+
+    h = Harness(tmp_path)
+    run_once(
+        pd.Timestamp("2026-11-18 16:17:00+00:00"),
+        h.cfg,
+        h.store,
+        h.fetch,
+        h.send,
+        defer_delivery=True,
+        run_id="workflow-44",
+    )
+
+    def uncertain(_message):
+        raise NotifyError("timeout", delivery_uncertain=True)
+
+    result = deliver_pending(h.store, uncertain, "workflow-44")
+    assert result.status == "delivery_unknown"
+    assert h.store.day_closed(DAY)
+    assert h.store.pending_delivery("workflow-44") is None
