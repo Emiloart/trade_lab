@@ -30,21 +30,21 @@ The live monitor requires both `BOT_TOKEN` and `CHAT_ID`. Telegram errors are wr
 
 ## GitHub Actions
 
-The workflow at `.github/workflows/trading_bot.yml`:
+The workflows are `.github/workflows/trading_bot.yml` (scheduled monitor) and `.github/workflows/ci.yml` (quality and documentation checks). The trading workflow:
 
 - schedules weekday runs every five minutes across a broad UTC window;
 - relies on the application to enforce the New York-local 10:00–15:00 window;
 - serializes runs with a concurrency group;
-- restores `.state/state.json` using date-scoped Actions cache keys and saves only after a successful scheduled run when the application has produced a state file;
-- sends alerts for scheduled events and uses dry-run mode for manual dispatch.
+- restores `.state/state.json` and `.state/state.json.bak` using date-scoped Actions cache keys;\n- validates a restored cache before running. A cache miss is allowed to initialize an empty state only before 10:00 New York time; a miss at or after session start stops the run;\n- checkpoints a pending alert and state backup to a unique cache key before calling Telegram, then stores the final delivery outcome under a later key;
+- prepares and delivers alerts in separate steps for scheduled events; manual dispatch runs dry-run mode and never writes scheduled state.
 
 Configure `BOT_TOKEN` and `CHAT_ID` in repository Actions secrets before expecting scheduled Telegram delivery. Manual dispatch is deliberately dry-run.
 
-The cron schedule is not an exchange calendar. The application’s stale-data check is a secondary guard, not a holiday-calendar implementation. GitHub-hosted runners and Actions cache are operational dependencies and should not be treated as a durable always-on service. Scheduled workflows run from the repository's default branch; pushing this workflow to a feature branch does not activate that branch's schedule on the default branch. Manual dispatch remains dry-run.
+The cron schedule is not an exchange calendar. The application’s stale-data check is a secondary guard, not a holiday-calendar implementation. GitHub-hosted runners and Actions cache are operational dependencies, not a durable database. The restore action's `cache-matched-key` output is passed as `CACHE_MATCHED_KEY` to the cache guard. A same-day cache miss during the session fails closed; it is not treated as a new day. Scheduled workflows run from the repository's default branch; pushing this workflow to a feature branch does not activate that branch's schedule on the default branch. Manual dispatch remains dry-run.
 
 ## State and manual P&L
 
-By default state is stored at `.state/state.json`. A missing file is treated as first-run state. An existing unreadable, malformed, structurally invalid, or unsupported-version file causes the monitor to stop with a non-zero exit; it is never silently replaced with an empty history. Locally, back up this file if you need to preserve alert history. Do not commit it if it contains personal trading records.
+By default state is stored at `.state/state.json`; its last-known-good predecessor is `.state/state.json.bak`. A missing primary with a backup, or an existing unreadable, malformed, structurally invalid, or unsupported-version file causes the monitor to stop with a non-zero exit. Only the scheduled cache guard may initialize a missing state file, and only before the session begins. Do not delete state to clear a daily lockout. Preserve both files before any manual recovery, and do not commit them.
 
 Record realized P&L manually:
 
@@ -69,7 +69,7 @@ Each command adds to the current New York date. The loss gate uses the accumulat
 | `no_conversion` | QQQ and NQ have no shared usable bar timestamp |
 | `below_min_lot` | Nominal risk budget cannot fund the configured minimum lot |
 | `dry_run` | Alert was formatted but not sent or persisted |
-| `send_failed` | Telegram delivery failed; the setup remains eligible for retry |
+| `send_failed` | Telegram explicitly rejected the request; pending state is cleared and a later run may retry |\n| `delivery_unknown` | Telegram may have accepted the message but no trustworthy response was received; the day is closed pending manual reconciliation |\n| `delivery_prepared` | Pending alert was persisted for a scheduled workflow checkpoint; it has not yet been sent |\n| `no_pending_delivery` | The current workflow attempt has no pending alert to send |
 | `sent` | Telegram accepted the alert and state was recorded |
 
 ## Incident response
@@ -77,5 +77,5 @@ Each command adds to the current New York date. The loss gate uses the accumulat
 - If a Telegram token may have leaked, revoke it with BotFather and replace the Actions secret.
 - If state is corrupt or unexpectedly missing, stop scheduled delivery while investigating; do not assume an empty state is safe because it can permit duplicate alerts. See [troubleshooting and recovery](troubleshooting.md) for the recovery procedure.
 - If data timestamps or converted levels look wrong, disable scheduled delivery and inspect both QQQ and NQ source bars before resuming.
-- If an alert was delivered but not recorded, a later run may resend it. Verify Telegram history before manually changing state.
+- If a run is interrupted after the pre-delivery checkpoint, the next run converts the pending entry to `delivery_unknown` and will not resend it. Reconcile Telegram history before manually clearing or reopening the day.\n- Network timeouts and HTTP 5xx responses are treated as uncertain delivery. Explicit Telegram 4xx rejection is retryable after the pending intent is cleared.
 - Never treat a GitHub Actions green check as evidence of strategy profitability or broker execution correctness.
