@@ -12,8 +12,8 @@ import pandas as pd
 from .config import StrategyConfig
 from .data import normalize_bars
 from .instruments import InstrumentSpec
-from .sizing import quantity_for_instrument_risk
 from .sessions import NY, in_window
+from .sizing import quantity_for_instrument_risk
 from .strategy import LONG, first_signal, prepare
 
 
