@@ -127,3 +127,30 @@ code revision when supplied by the runtime. `retrieved_at` is optional and
 must be provided by the operator when known; the tool does not fabricate it.
 Keep the artifact directory with the report to reproduce the input dataset
 and configuration used for a run.
+
+
+## Execution realism and interpretation
+
+The backtester enters at the next available in-session bar open after a signal
+bar closes. Stop and target levels remain anchored to the signal close; if the
+next open has already crossed either level, the setup is recorded as
+`NOT_EXECUTED` rather than chased. The ledger preserves both signal and
+execution timestamps and prices.
+
+Spread is charged half on each side, slippage adversely on each fill, and
+commission per unit per side. Sizing includes the distance from the actual
+entry reference open to the signal-anchored stop plus modeled round-trip costs.
+Stop gaps fill at the worse bar open. Target gaps after entry fill at the open
+or better. If both stop and target are touched within one OHLC candle, stop wins
+because intrabar ordering is unknowable from OHLC data.
+
+Walk-forward selection continues to use `expectancy_r`, now the net executable
+R multiple after modeled costs. `signal_expectancy_r` separately reports the
+hypothetical signal-close reference outcome over the same exit path. Signals
+rejected because the next open has crossed the bracket are counted as
+`not_executed` and excluded from trade expectancy.
+
+This remains a static OHLC simulation, not a fill guarantee. It does not model
+variable quote spreads, latency, market impact, partial fills, queue priority,
+financing, or broker-specific execution rules. Validate assumptions against
+venue-specific tick or quote data before drawing conclusions.

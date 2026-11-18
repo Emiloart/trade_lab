@@ -30,7 +30,7 @@ The maintained implementation is the `trade_lab/` package:
 
 ## Strategy parity
 
-Live monitoring and historical simulation share `strategy.prepare()`, `strategy.first_signal()`, `StrategyParameters`, indicator functions, New York session handling, and unit-risk sizing. `AccountRiskConfig` is separate; `StrategyConfig` remains a legacy combined adapter for the live monitor. The historical execution layer separately defines candle fill assumptions; it does not reimplement signal rules. The two legacy VWAP entry points are thin wrappers around this layer.
+Live monitoring and historical simulation share `strategy.prepare()`, `strategy.first_signal()`, `StrategyParameters`, indicator functions, New York session handling, and unit-risk sizing. `AccountRiskConfig` is separate; `StrategyConfig` remains a legacy combined adapter for the live monitor. The historical execution layer separately defines next-bar-open entry, static spread/slippage, gap handling, and conservative OHLC collision assumptions; it does not reimplement signal rules. The two legacy VWAP entry points are thin wrappers around this layer.
 
 ## Live and backtest data flow
 
@@ -62,6 +62,6 @@ These are domain contracts, not completed broker integrations. No broker adapter
 ## Current boundaries
 
 - No broker API, order placement, fill ingestion, or position reconciliation.
-- Backtest fill assumptions do not establish real executable prices.
+- Backtest fill assumptions remain static OHLC approximations and do not establish real executable prices.
 - No exchange holiday calendar.
 - QQQ/NQ conversion and CFD contract assumptions are not broker-validated.
