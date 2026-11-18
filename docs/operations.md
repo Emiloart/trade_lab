@@ -89,5 +89,5 @@ Each command adds to the current New York date. The loss gate uses the accumulat
 - If state is corrupt or unexpectedly missing, stop scheduled delivery while investigating; do not assume an empty state is safe because it can permit duplicate alerts. See [troubleshooting and recovery](troubleshooting.md) for the recovery procedure.
 - If data timestamps or converted levels look wrong, disable scheduled delivery and inspect both QQQ and NQ source bars before resuming.
 - If a run is interrupted after the pre-delivery checkpoint, the next run converts the pending entry to `delivery_unknown` and will not resend it. Reconcile Telegram history before manually clearing or reopening the day.
-- Network timeouts and HTTP 5xx responses are treated as uncertain delivery. Explicit Telegram 4xx rejection is retryable after the pending intent is cleared.
+- Network timeouts, HTTP 408/425/5xx responses, malformed responses, and transport errors are treated as uncertain delivery. Explicit rejection responses such as ordinary 4xx/429 are retryable after the pending intent is cleared.
 - Never treat a GitHub Actions green check as evidence of strategy profitability or broker execution correctness.
