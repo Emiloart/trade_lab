@@ -37,3 +37,72 @@ download market data, verify broker specifications, or connect to a broker.
 See docs/research.md for the research methodology and report interpretation.
 Example numbers in any schema illustration are placeholders, not verified
 market assumptions or recommendations.
+
+## Configuration example
+
+This is a complete structural example for one ETF. The values are deliberately
+illustrative. Replace the CSV path, source description, conversion rate, venue
+specification, and every cost assumption with values verified for the instrument
+and data source being tested.
+
+~~~json
+{
+  "train_days": 120,
+  "validation_days": 20,
+  "test_days": 20,
+  "step_days": 20,
+  "final_holdout_days": 60,
+  "risk": {
+    "account_size": 10000,
+    "risk_pct": 0.01,
+    "max_daily_loss_pct": 0.02
+  },
+  "variants": [
+    {
+      "name": "baseline",
+      "strategy": {
+        "atr_period": 14,
+        "atr_stop_mult": 1.5,
+        "reward_risk": 1.3
+      }
+    },
+    {
+      "name": "shallow-pullback",
+      "strategy": {
+        "atr_period": 14,
+        "filters": {
+          "max_pullback_atr": 0.5
+        }
+      }
+    }
+  ],
+  "symbols": {
+    "SYMBOL_A": {
+      "csv": "data/symbol_a_5m.csv",
+      "data_source": "vendor A, SYMBOL_A, 5m, adjusted: no",
+      "value_to_account_rate": 1.0,
+      "instrument": {
+        "asset_class": "etf",
+        "quote_currency": "USD",
+        "tick_size": 0.01,
+        "tick_value": 0.01,
+        "tick_value_currency": "USD",
+        "quantity_unit": "share",
+        "min_quantity": 1,
+        "quantity_step": 1,
+        "max_quantity": 100000
+      },
+      "costs": {
+        "spread_points": 0.02,
+        "slippage_points": 0.01,
+        "commission_per_unit": 0.0
+      }
+    }
+  }
+}
+~~~
+
+The same structure accepts multiple symbols under symbols. Give each one its
+own instrument object, costs, conversion rate, data source, and CSV file.
+Do not copy one venue's contract economics or execution costs to another
+symbol merely because their price scales look similar.
