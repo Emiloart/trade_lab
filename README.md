@@ -11,6 +11,7 @@ The project is built around a VWAP pullback strategy. Its research and monitorin
 - **Multi-instrument research:** compares instruments using their own trading specifications, account-currency conversion, execution costs, and data provenance.
 - **Walk-forward evaluation:** separates chronological training, validation, test, and optional holdout periods, with uncertainty intervals, multiple-testing controls, parameter-sensitivity analysis, and explicit acceptance criteria.
 - **Cost stress testing:** evaluates selected configurations under higher spread, slippage, and commission assumptions.
+- **Instrument calibration:** produces broker-specific sizing matrices from operator-attested contract specifications, currency conversion, quantity limits, and execution costs.
 - **Reproducible research:** validates historical datasets and records configuration, data fingerprints, provenance, and experiment artifacts.
 - **Engineering quality:** includes automated tests, linting, and documentation checks in GitHub Actions.
 
@@ -81,6 +82,7 @@ The command writes the walk-forward report and its reproducibility artifacts. Co
 - [Backtesting](docs/backtesting.md) — historical execution model and cost assumptions.
 - [Research methodology](docs/research.md) — experiment design, walk-forward evaluation, and interpretation.
 - [Research CLI](docs/research_cli.md) — configuration format and command usage.
+- [Instrument calibration](docs/instrument-calibration.md) — broker contract inputs and risk-sizing calibration.
 
 ## Development checks
 

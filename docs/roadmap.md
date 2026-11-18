@@ -22,6 +22,16 @@ This roadmap reflects the current repository state. Planned items are not implem
 - Establish out-of-sample and walk-forward evaluation with adequate sample sizes.
 - Validate instrument mapping and sizing assumptions against the intended broker.
 
+### M2.4 — Broker instrument mapping and sizing calibration
+
+- Add an offline calibration workflow for operator-attested broker contract specifications.
+- Require explicit broker symbol mapping, tick economics, quantity constraints, account-currency conversion, and execution-cost assumptions.
+- Produce a risk-budget/stop-distance sizing matrix with minimum-size, maximum-size, and budget checks.
+- Do not claim broker verification or connect the workflow to live order submission.
+- Keep the live monitor's legacy CFD sizing separate until the intended broker specification and observed quotes are reconciled.
+
+Completed in the calibration workflow; actual broker-specification reconciliation remains an operator task.
+
 ## M3 — Durable event and trade journal
 
 - Replace Actions cache as authoritative state with durable database persistence.

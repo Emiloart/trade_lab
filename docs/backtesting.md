@@ -32,7 +32,7 @@ When an `InstrumentSpec` is supplied to `run_backtest()`, sizing and P&L use tha
 
 For instrument-aware runs, spread and slippage are specified in price points, while `commission_per_unit` is account-currency commission per quantity unit per side. The legacy no-instrument path retains its historical price-unit commission convention; do not mix that legacy convention with broker commission figures.
 
-OHLC stop/target triggers remain conservative: stop wins same-candle collisions, stop gaps fill at the worse open, and target gaps do not receive favorable improvement. Entry is still modeled at the signal bar close; this is a research convention, not a guarantee that a live order can fill there. Open trades are marked separately and excluded from realized metrics.
+OHLC stop/target triggers remain conservative: stop wins same-candle collisions, stop gaps fill at the worse open, and a target crossed by a later bar's open fills at that open (price improvement). Entry is modeled at the next available in-session bar open after the signal candle closes; the original stop and target remain anchored to the signal close. Setups that gap through the bracket before entry are rejected rather than chased. This is a bar-based research convention, not a guarantee that a live order can fill there. Open trades are marked separately and excluded from realized metrics.
 
 ## Interpretation
 
