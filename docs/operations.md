@@ -35,7 +35,9 @@ The workflows are `.github/workflows/trading_bot.yml` (scheduled monitor) and `.
 - schedules weekday runs every five minutes across a broad UTC window;
 - relies on the application to enforce the New York-local 10:00–15:00 window;
 - serializes runs with a concurrency group;
-- restores `.state/state.json` and `.state/state.json.bak` using date-scoped Actions cache keys;\n- validates a restored cache before running. A cache miss is allowed to initialize an empty state only before 10:00 New York time; a miss at or after session start stops the run;\n- checkpoints a pending alert and state backup to a unique cache key before calling Telegram, then stores the final delivery outcome under a later key;
+- restores `.state/state.json` and `.state/state.json.bak` using date-scoped Actions cache keys;
+- validates a restored cache before running. A cache miss is allowed to initialize an empty state only before 10:00 New York time; a miss at or after session start stops the run;
+- checkpoints a pending alert and state backup to a unique cache key before calling Telegram, then stores the final delivery outcome under a later key;
 - prepares and delivers alerts in separate steps for scheduled events; manual dispatch runs dry-run mode and never writes scheduled state.
 
 Configure `BOT_TOKEN` and `CHAT_ID` in repository Actions secrets before expecting scheduled Telegram delivery. Manual dispatch is deliberately dry-run.
@@ -69,7 +71,10 @@ Each command adds to the current New York date. The loss gate uses the accumulat
 | `no_conversion` | QQQ and NQ have no shared usable bar timestamp |
 | `below_min_lot` | Nominal risk budget cannot fund the configured minimum lot |
 | `dry_run` | Alert was formatted but not sent or persisted |
-| `send_failed` | Telegram explicitly rejected the request; pending state is cleared and a later run may retry |\n| `delivery_unknown` | Telegram may have accepted the message but no trustworthy response was received; the day is closed pending manual reconciliation |\n| `delivery_prepared` | Pending alert was persisted for a scheduled workflow checkpoint; it has not yet been sent |\n| `no_pending_delivery` | The current workflow attempt has no pending alert to send |
+| `send_failed` | Telegram explicitly rejected the request; pending state is cleared and a later run may retry |
+| `delivery_unknown` | Telegram may have accepted the message but no trustworthy response was received; the day is closed pending manual reconciliation |
+| `delivery_prepared` | Pending alert was persisted for a scheduled workflow checkpoint; it has not yet been sent |
+| `no_pending_delivery` | The current workflow attempt has no pending alert to send |
 | `sent` | Telegram accepted the alert and state was recorded |
 
 ## Incident response
@@ -77,5 +82,6 @@ Each command adds to the current New York date. The loss gate uses the accumulat
 - If a Telegram token may have leaked, revoke it with BotFather and replace the Actions secret.
 - If state is corrupt or unexpectedly missing, stop scheduled delivery while investigating; do not assume an empty state is safe because it can permit duplicate alerts. See [troubleshooting and recovery](troubleshooting.md) for the recovery procedure.
 - If data timestamps or converted levels look wrong, disable scheduled delivery and inspect both QQQ and NQ source bars before resuming.
-- If a run is interrupted after the pre-delivery checkpoint, the next run converts the pending entry to `delivery_unknown` and will not resend it. Reconcile Telegram history before manually clearing or reopening the day.\n- Network timeouts and HTTP 5xx responses are treated as uncertain delivery. Explicit Telegram 4xx rejection is retryable after the pending intent is cleared.
+- If a run is interrupted after the pre-delivery checkpoint, the next run converts the pending entry to `delivery_unknown` and will not resend it. Reconcile Telegram history before manually clearing or reopening the day.
+- Network timeouts and HTTP 5xx responses are treated as uncertain delivery. Explicit Telegram 4xx rejection is retryable after the pending intent is cleared.
 - Never treat a GitHub Actions green check as evidence of strategy profitability or broker execution correctness.
