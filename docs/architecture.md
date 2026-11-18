@@ -14,10 +14,12 @@ The maintained implementation is the `trade_lab/` package:
 | `market_data.py` | Provider-neutral historical/live market-data contract |
 | `instruments.py` | Asset classes and broker-supplied tick/quantity economics |
 | `execution.py` | Broker adapter contract, order lifecycle types, and execution-mode guards |
-| `filters.py` | Optional, instrument-independent signal research filters |\n| `indicators.py` | Session VWAP, true range, and ATR |
+| `filters.py` | Optional, instrument-independent signal research filters |
+| `indicators.py` | Session VWAP, true range, and ATR |
 | `sessions.py` | New York time handling, session window, closed-bar and freshness checks |
 | `strategy.py` | Canonical VWAP pullback signal definition |
-| `backtest.py` | Historical execution simulation using the canonical strategy functions |\n| `research.py` | Reclaim-outcome measurement and chronological multi-instrument walk-forward evaluation |\n| `research.py` | Reclaim-outcome measurement and chronological multi-instrument walk-forward evaluation |
+| `backtest.py` | Historical execution simulation using the canonical strategy functions |
+| `research.py` | Reclaim-outcome measurement and chronological multi-instrument walk-forward evaluation |
 | `sizing.py` | Risk-based unit/lot sizing and daily loss comparison |
 | `state.py` | Validated JSON state, atomic replacement, recovery backup, and pending-delivery journal |
 | `alert.py` | Human-readable Telegram alert formatting |
