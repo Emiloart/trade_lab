@@ -110,7 +110,8 @@ def run_from_config(config_path: str | Path, output_path: str | Path) -> int:
         _keys(item, {"name", "strategy"}, {"name", "strategy"}, label)
         if not isinstance(item["name"], str):
             raise ValueError(f"{label}.name must be a string")
-        variants.append(ResearchVariant(item["name"], _strategy(item["strategy"], f"{label}.strategy")))
+        strategy = _strategy(item["strategy"], f"{label}.strategy")
+        variants.append(ResearchVariant(item["name"], strategy))
 
     raw_symbols = _object(config["symbols"], "symbols")
     if not raw_symbols:
@@ -128,7 +129,13 @@ def run_from_config(config_path: str | Path, output_path: str | Path) -> int:
         if not isinstance(item["data_source"], str) or not item["data_source"].strip():
             raise ValueError(f"{label}.data_source must describe provenance")
         rate = item["value_to_account_rate"]
-        if isinstance(rate, bool) or not isinstance(rate, (int, float)) or not math.isfinite(rate) or rate <= 0:
+        invalid_rate = (
+            isinstance(rate, bool)
+            or not isinstance(rate, (int, float))
+            or not math.isfinite(rate)
+            or rate <= 0
+        )
+        if invalid_rate:
             raise ValueError(f"{label}.value_to_account_rate must be a positive finite number")
         csv_path = Path(item["csv"]).expanduser()
         if not csv_path.is_absolute():
