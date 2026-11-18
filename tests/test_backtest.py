@@ -62,7 +62,6 @@ def test_open_trade_is_marked_not_counted_as_realized():
 
 def test_recent_start_date_does_not_truncate_indicator_warmup():
     bars = sample_bars((101.0, 106.0, 100.0, 105.0))
-    # The start-date filter is applied to NY dates after full-frame preparation.
     trades = run_backtest(bars, config(), start_date=pd.Timestamp("2026-11-18").date())
     assert len(trades) == 1
 
@@ -76,3 +75,16 @@ def test_backtest_rejects_naive_or_unsorted_timestamps():
     unsorted = bars.iloc[::-1]
     with pytest.raises(ValueError):
         run_backtest(unsorted, config())
+
+
+def test_backtest_requires_open_for_gap_aware_execution():
+    bars = sample_bars((101.0, 106.0, 100.0, 105.0)).drop(columns=["Open"])
+    with pytest.raises(ValueError, match="Open"):
+        run_backtest(bars, config())
+
+
+def test_realized_drawdown_includes_initial_capital_baseline():
+    trades = pd.DataFrame(
+        {"Status": ["CLOSED", "CLOSED"], "Realized_PnL_$": [-25.0, 10.0]}
+    )
+    assert performance_summary(trades)["max_drawdown"] == pytest.approx(-25.0)

@@ -64,6 +64,11 @@ def run_backtest(
         raise ValueError("backtest bars require a timezone-aware DatetimeIndex")
     if bars.index.has_duplicates or not bars.index.is_monotonic_increasing:
         raise ValueError("backtest bars must be sorted with unique timestamps")
+    missing = {"Open", "High", "Low", "Close", "Volume"} - set(bars.columns)
+    if missing:
+        raise ValueError(f"backtest bars missing required columns: {sorted(missing)}")
+    if bars[["Open", "High", "Low", "Close"]].isna().any().any():
+        raise ValueError("backtest OHLC values cannot be missing")
 
     prepared = prepare(bars, config)
     ny_dates = prepared.index.tz_convert(NY).date
