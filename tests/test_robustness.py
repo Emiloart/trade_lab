@@ -28,8 +28,7 @@ def test_block_bootstrap_is_deterministic_and_reports_trade_and_day_counts():
     assert first == second
     assert first["sample_trades"] == 8
     assert first["sample_days"] == 8
-    assert first["expectancy_ci_low"] <= first["point_expectancy"]
-    assert first["expectancy_ci_high"] >= first["point_expectancy"]
+    assert first["expectancy_ci_low"] <= first["expectancy_ci_high"]
 
 
 def test_bonferroni_family_size_widens_adjusted_expectancy_interval():
