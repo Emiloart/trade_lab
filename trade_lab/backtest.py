@@ -236,9 +236,11 @@ def run_backtest(
         status = "OPEN"
         last_mark = entry_reference
 
+        last_position = entry_position
         for pos in range(entry_position, len(prepared)):
             if ny_dates[pos] != day or not in_window(prepared.index[pos], config):
                 break
+            last_position = pos
             row = prepared.iloc[pos]
             last_mark = float(row["Close"])
             outcome = _exit_for_bar(signal.direction, row, signal.stop, signal.target)
@@ -251,9 +253,8 @@ def run_backtest(
             break
 
         if status == "OPEN":
-            last_pos = pos if "pos" in locals() and ny_dates[pos] == day and in_window(prepared.index[pos], config) else entry_position
-            last_mark = float(prepared.iloc[last_pos]["Close"])
-            exit_time = prepared.index[last_pos]
+            last_mark = float(prepared.iloc[last_position]["Close"])
+            exit_time = prepared.index[last_position]
             exit_reference = last_mark
             exit_fill = exit_reference - signal.direction * fill_cost
 
@@ -332,7 +333,7 @@ def performance_summary(trades: pd.DataFrame) -> dict[str, float | int]:
     )
     average_r = float(r_values.mean()) if len(r_values) else 0.0
     return {
-        "trades": int(len(closed)),
+        "trades": int((trades["Status"] != "NOT_EXECUTED").sum()),
         "signals": int(len(trades)),
         "closed": int(len(closed)),
         "open": int((trades["Status"] == "OPEN").sum()),
