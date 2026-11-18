@@ -143,7 +143,7 @@ def run_backtest(
                 + commission_price_points
             )
             units = quantity_for_instrument_risk(
-                config.risk_dollars,
+                risk_config.risk_dollars,
                 effective_stop_distance,
                 instrument,
                 value_to_account_rate,
