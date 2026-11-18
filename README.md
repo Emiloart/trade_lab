@@ -14,7 +14,7 @@ A Python-based market-monitoring and Telegram alerting system for a VWAP pullbac
 - Telegram delivery with credentials supplied through environment variables.
 - Atomic JSON state writes; invalid existing state fails closed rather than resetting alert history.
 - GitHub Actions cache continuity between successful scheduled runs, without creating empty fallback state.
-- Pytest suite and Ruff lint checks in GitHub Actions.
+- Pytest, Ruff, and repository-backed documentation verification in GitHub Actions.
 
 ## Important limitations
 
