@@ -62,3 +62,31 @@ def test_invalid_instrument_economics_are_rejected(kwargs):
     values.update(kwargs)
     with pytest.raises(ValueError):
         InstrumentSpec(**values)
+
+
+def test_instrument_sizing_rounds_down_and_respects_contract_limits():
+    from trade_lab.sizing import (
+        instrument_realized_risk,
+        quantity_for_instrument_risk,
+    )
+
+    spec = cfd()
+    quantity = quantity_for_instrument_risk(25.0, 2.0, spec)
+    assert quantity == pytest.approx(1.25)
+    assert instrument_realized_risk(quantity, 2.0, spec) <= 25.0
+
+
+def test_instrument_sizing_returns_zero_below_minimum_quantity():
+    from trade_lab.sizing import quantity_for_instrument_risk
+
+    assert quantity_for_instrument_risk(0.01, 2.0, cfd()) == 0.0
+
+
+def test_instrument_sizing_applies_fx_conversion_and_maximum():
+    from trade_lab.sizing import quantity_for_instrument_risk
+
+    spec = stock()
+    quantity = quantity_for_instrument_risk(
+        100.0, 1.0, spec, value_to_account_rate=2.0
+    )
+    assert quantity == pytest.approx(50.0)
