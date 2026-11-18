@@ -33,7 +33,7 @@ The CI workflow at `.github/workflows/ci.yml` runs pytest, Ruff, and `scripts/ve
 
 When changing persistence or Actions cache behavior, verify at least:
 
-- A missing state file initializes as a new empty store.
+- A missing local state file initializes as a new store; scheduled cache bootstrap is allowed only before 10:00 New York time.
 - A malformed JSON file raises a state error and is not overwritten.
 - An unsupported schema version fails closed.
 - A successful scheduled run can save an application-created state file.
@@ -45,7 +45,7 @@ When changing persistence or Actions cache behavior, verify at least:
 - A pending alert restored from an earlier workflow attempt becomes `delivery_unknown` and is not sent again automatically.
 - A successful send is followed by a final cache save; if that save fails, the pre-send pending checkpoint remains.
 
-The workflow's conditional save is reviewed in source; GitHub Actions must also be checked for the exact commit after it runs.
+The scheduled workflow uses separate pre-delivery checkpoint and post-delivery final-cache steps. Verify both step outcomes in GitHub Actions for the exact commit; the static documentation verifier does not emulate GitHub's cache service.
 
 ## Required checks for strategy changes
 
