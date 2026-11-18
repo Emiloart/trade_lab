@@ -29,7 +29,10 @@ rule. Choose horizons before examining results; do not tune on final holdout dat
 ## Walk-forward research
 
 Use `trade_lab.research.run_walk_forward_research` with symbol-keyed OHLCV
-datasets, instrument specifications, and execution costs. Supply an explicit
+datasets, instrument specifications, and execution costs. The runner uses the
+intersection of observed New York sessions so every symbol is evaluated over
+the same train/validation/test date boundaries. Each symbol/variant backtest
+is computed once and reused across the windows. Supply an explicit
 list of `ResearchVariant` configurations. The runner creates chronological
 expanding-history windows, reports candidate training and validation metrics,
 selects by validation expectancy in R, then evaluates the selected variant on
@@ -61,6 +64,11 @@ report = run_walk_forward_research(
 )
 report.to_csv("walk_forward_report.csv", index=False)
 ```
+
+Pass `data_sources` to label each dataset in the output; omitted labels are
+reported as `unspecified`. The report also records data bounds and bar count,
+a strategy configuration hash, contract economics, cost assumptions, and
+account-risk assumptions.
 
 The caller must document each symbol's actual instrument specification,
 account-currency conversion rate, spread, slippage, commission, and data

@@ -109,12 +109,15 @@ def run_walk_forward_research(
     step_days: int | None = None,
     value_to_account_rates: Mapping[str, float] | None = None,
     risk: AccountRiskConfig | None = None,
+    data_sources: Mapping[str, str] | None = None,
 ) -> pd.DataFrame:
-    """Evaluate symbols with mandatory per-symbol specs and execution costs.
+    """Evaluate symbols on shared calendar windows and explicit per-symbol costs.
 
-    Validation expectancy selects the variant. The subsequent test interval is
-    evaluated only after selection. Full history is passed to the backtester so
-    indicator warm-up uses only prior observations without truncating history.
+    The intersection of observed New York sessions is used for every symbol,
+    keeping cross-instrument train/validation/test date boundaries aligned.
+    Each symbol/variant backtest is computed once and reused across windows.
+    Validation expectancy selects the variant; test data never participates
+    in selection. Full history is passed to preserve indicator warm-up.
     """
     if not datasets:
         raise ValueError("at least one dataset is required")
@@ -122,86 +125,61 @@ def run_walk_forward_research(
         raise ValueError("at least one research variant is required")
     if len({variant.name for variant in variants}) != len(variants):
         raise ValueError("research variant names must be unique")
-    rates = value_to_account_rates or {}
-    output: list[dict[str, object]] = []
 
+    rates = value_to_account_rates or {}
+    sources = data_sources or {}
+    sessions_by_symbol: dict[str, set[date]] = {}
     for symbol, bars in datasets.items():
         if symbol not in instruments or symbol not in costs:
             raise ValueError(f"{symbol} requires explicit instrument economics and costs")
-        instrument = instruments[symbol]
-        if instrument.symbol != symbol:
-            raise ValueError(f"instrument key {symbol!r} does not match {instrument.symbol!r}")
+        if instruments[symbol].symbol != symbol:
+            raise ValueError(f"instrument key {symbol!r} does not match {instruments[symbol].symbol!r}")
         if bars.empty or not isinstance(bars.index, pd.DatetimeIndex) or bars.index.tz is None:
             raise ValueError(f"{symbol} requires non-empty timezone-aware bars")
-        sessions = sorted(set(bars.index.tz_convert("America/New_York").date))
-        windows = make_walk_forward_windows(
-            sessions, train_days, validation_days, test_days, step_days
+        if bars.index.has_duplicates or not bars.index.is_monotonic_increasing:
+            raise ValueError(f"{symbol} bars must be sorted with unique timestamps")
+        if symbol in sources and not sources[symbol].strip():
+            raise ValueError(f"{symbol} data source description cannot be empty")
+        sessions_by_symbol[symbol] = set(bars.index.tz_convert(NY).date)
+
+    common_sessions = sorted(set.intersection(*sessions_by_symbol.values()))
+    windows = make_walk_forward_windows(
+        common_sessions, train_days, validation_days, test_days, step_days
+    )
+    if not windows:
+        raise ValueError(
+            f"only {len(common_sessions)} common New York sessions; "
+            "insufficient for requested walk-forward windows"
         )
-        if not windows:
-            raise ValueError(
-                f"{symbol} has {len(sessions)} sessions; insufficient for requested windows"
-            )
 
-        for window_number, window in enumerate(windows, start=1):
-            evaluated = []
-            for variant in variants:
-                trades = run_backtest(
-                    bars, variant.config, costs=costs[symbol], instrument=instrument,
-                    value_to_account_rate=rates.get(symbol, 1.0), risk=risk,
-                )
-                train = _summary_for_range(trades, window.train_start, window.train_end)
-                validation = _summary_for_range(
-                    trades, window.validation_start, window.validation_end
-                )
-                evaluated.append((variant, validation))
-                variant_risk = risk or (
-                    AccountRiskConfig(
-                        variant.config.account_size,
-                        variant.config.risk_pct,
-                        variant.config.max_daily_loss_pct,
-                    )
-                    if isinstance(variant.config, StrategyConfig)
-                    else AccountRiskConfig()
-                )
-                output.append({
-                    "symbol": symbol, "window": window_number, "variant": variant.name,
-                    "config_hash": _config_fingerprint(variant.config),
-                    "data_start": bars.index[0].isoformat(),
-                    "data_end": bars.index[-1].isoformat(),
-                    "data_bars": len(bars),
-                    "instrument_tick_size": instrument.tick_size,
-                    "instrument_tick_value": instrument.tick_value,
-                    "instrument_tick_value_currency": instrument.tick_value_currency,
-                    "instrument_quantity_unit": instrument.quantity_unit,
-                    "instrument_min_quantity": instrument.min_quantity,
-                    "instrument_quantity_step": instrument.quantity_step,
-                    "instrument_max_quantity": instrument.max_quantity,
-                    "spread_points": costs[symbol].spread_points,
-                    "slippage_points": costs[symbol].slippage_points,
-                    "commission_per_unit": costs[symbol].commission_per_unit,
-                    "value_to_account_rate": rates.get(symbol, 1.0),
-                    "account_size": variant_risk.account_size,
-                    "risk_pct": variant_risk.risk_pct,
-                    "role": "candidate", "train_start": window.train_start.isoformat(),
-                    "train_end": window.train_end.isoformat(),
-                    "validation_start": window.validation_start.isoformat(),
-                    "validation_end": window.validation_end.isoformat(),
-                    "test_start": window.test_start.isoformat(),
-                    "test_end": window.test_end.isoformat(),
-                    **{f"train_{key}": value for key, value in train.items()},
-                    **{f"validation_{key}": value for key, value in validation.items()},
-                })
+    output: list[dict[str, object]] = []
+    for symbol, bars in datasets.items():
+        instrument = instruments[symbol]
+        execution_costs = costs[symbol]
+        trades_by_variant: dict[str, pd.DataFrame] = {}
+        metadata_by_variant: dict[str, dict[str, object]] = {}
 
-            selected_variant, _ = max(evaluated, key=lambda item: _selection_key(item[1]))
-            test_trades = run_backtest(
-                bars, selected_variant.config, costs=costs[symbol], instrument=instrument,
-                value_to_account_rate=rates.get(symbol, 1.0), risk=risk,
+        for variant in variants:
+            trades_by_variant[variant.name] = run_backtest(
+                bars,
+                variant.config,
+                costs=execution_costs,
+                instrument=instrument,
+                value_to_account_rate=rates.get(symbol, 1.0),
+                risk=risk,
             )
-            test = _summary_for_range(test_trades, window.test_start, window.test_end)
-            output.append({
-                "symbol": symbol, "window": window_number,
-                "variant": selected_variant.name,
-                "config_hash": _config_fingerprint(selected_variant.config),
+            variant_risk = risk or (
+                AccountRiskConfig(
+                    variant.config.account_size,
+                    variant.config.risk_pct,
+                    variant.config.max_daily_loss_pct,
+                )
+                if isinstance(variant.config, StrategyConfig)
+                else AccountRiskConfig()
+            )
+            metadata_by_variant[variant.name] = {
+                "config_hash": _config_fingerprint(variant.config),
+                "data_source": sources.get(symbol, "unspecified"),
                 "data_start": bars.index[0].isoformat(),
                 "data_end": bars.index[-1].isoformat(),
                 "data_bars": len(bars),
@@ -212,11 +190,51 @@ def run_walk_forward_research(
                 "instrument_min_quantity": instrument.min_quantity,
                 "instrument_quantity_step": instrument.quantity_step,
                 "instrument_max_quantity": instrument.max_quantity,
-                "spread_points": costs[symbol].spread_points,
-                "slippage_points": costs[symbol].slippage_points,
-                "commission_per_unit": costs[symbol].commission_per_unit,
+                "spread_points": execution_costs.spread_points,
+                "slippage_points": execution_costs.slippage_points,
+                "commission_per_unit": execution_costs.commission_per_unit,
                 "value_to_account_rate": rates.get(symbol, 1.0),
-                "role": "selected_test", "selected_on": "validation_expectancy_r",
+                "account_size": variant_risk.account_size,
+                "risk_pct": variant_risk.risk_pct,
+                "max_daily_loss_pct": variant_risk.max_daily_loss_pct,
+            }
+
+        for window_number, window in enumerate(windows, start=1):
+            evaluated = []
+            for variant in variants:
+                trades = trades_by_variant[variant.name]
+                train = _summary_for_range(trades, window.train_start, window.train_end)
+                validation = _summary_for_range(
+                    trades, window.validation_start, window.validation_end
+                )
+                evaluated.append((variant, validation))
+                output.append({
+                    "symbol": symbol,
+                    "window": window_number,
+                    "variant": variant.name,
+                    "role": "candidate",
+                    **metadata_by_variant[variant.name],
+                    "train_start": window.train_start.isoformat(),
+                    "train_end": window.train_end.isoformat(),
+                    "validation_start": window.validation_start.isoformat(),
+                    "validation_end": window.validation_end.isoformat(),
+                    "test_start": window.test_start.isoformat(),
+                    "test_end": window.test_end.isoformat(),
+                    **{f"train_{key}": value for key, value in train.items()},
+                    **{f"validation_{key}": value for key, value in validation.items()},
+                })
+
+            selected_variant, _ = max(evaluated, key=lambda item: _selection_key(item[1]))
+            test = _summary_for_range(
+                trades_by_variant[selected_variant.name], window.test_start, window.test_end
+            )
+            output.append({
+                "symbol": symbol,
+                "window": window_number,
+                "variant": selected_variant.name,
+                "role": "selected_test",
+                "selected_on": "validation_expectancy_r",
+                **metadata_by_variant[selected_variant.name],
                 "train_start": window.train_start.isoformat(),
                 "train_end": window.train_end.isoformat(),
                 "validation_start": window.validation_start.isoformat(),
@@ -226,7 +244,6 @@ def run_walk_forward_research(
                 **{f"test_{key}": value for key, value in test.items()},
             })
     return pd.DataFrame(output)
-
 
 
 def measure_reclaim_outcomes(

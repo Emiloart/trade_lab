@@ -128,6 +128,7 @@ def test_multi_instrument_research_uses_each_symbols_costs_and_records_provenanc
         },
         [ResearchVariant("baseline", StrategyConfig(atr_period=1))],
         train_days=4, validation_days=2, test_days=2,
+        data_sources={"ETF_A": "vendor-a 5m", "ETF_B": "vendor-b 5m"},
     )
     selected = result.loc[result["role"] == "selected_test"]
     assert set(selected["symbol"]) == {"ETF_A", "ETF_B"}
@@ -137,3 +138,5 @@ def test_multi_instrument_research_uses_each_symbols_costs_and_records_provenanc
     assert selected["config_hash"].str.len().eq(64).all()
     assert selected["data_bars"].eq(len(bars_for_sessions())).all()
     assert selected["instrument_quantity_unit"].eq("share").all()
+    assert set(selected["data_source"]) == {"vendor-a 5m", "vendor-b 5m"}
+    assert selected.groupby("window")["test_start"].nunique().eq(1).all()
