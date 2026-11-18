@@ -36,14 +36,14 @@ When changing persistence or Actions cache behavior, verify at least:
 - A missing local state file initializes as a new store; scheduled cache bootstrap is allowed only before 10:00 New York time.
 - A malformed JSON file raises a state error and is not overwritten.
 - An unsupported schema version fails closed.
-- A successful scheduled run can save an application-created state file.
-- A failed run cannot save a newly manufactured empty state file.
+- Scheduled delivery is skipped unless the pre-delivery pending-state checkpoint succeeds.
+- A failed prepare or checkpoint step cannot proceed to Telegram delivery.
 - A manual dry run does not write or save scheduled state.
 - A cache miss before 10:00 New York time may initialize and checkpoint the empty first-run state.
 - A cache miss at or after 10:00 New York time fails closed.
 - A pending alert is checkpointed before Telegram is called.
 - A pending alert restored from an earlier workflow attempt becomes `delivery_unknown` and is not sent again automatically.
-- A successful send is followed by a final cache save; if that save fails, the pre-send pending checkpoint remains.
+- The final cache is saved only after a persisted delivery outcome; if delivery is interrupted, the earlier pending checkpoint remains.
 
 The scheduled workflow uses separate pre-delivery checkpoint and post-delivery final-cache steps. Verify both step outcomes in GitHub Actions for the exact commit; the static documentation verifier does not emulate GitHub's cache service.
 
