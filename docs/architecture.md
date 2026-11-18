@@ -10,7 +10,7 @@ The maintained implementation is the `trade_lab/` package:
 | --- | --- |
 | `config.py` | Instrument-independent strategy parameters, account risk, and legacy live configuration |
 | `cache_guard.py` | Same-day cache validation and safe pre-session bootstrap |
-| `data.py` | Yahoo Finance retrieval, OHLCV normalization, and cross-instrument ratio |
+| `data.py` | Yahoo Finance retrieval, live OHLCV normalization, and cross-instrument ratio |\n| `data_quality.py` | Non-repairing historical OHLCV validation and structured findings |
 | `market_data.py` | Provider-neutral historical/live market-data contract |
 | `instruments.py` | Asset classes and broker-supplied tick/quantity economics |
 | `execution.py` | Broker adapter contract, order lifecycle types, and execution-mode guards |
