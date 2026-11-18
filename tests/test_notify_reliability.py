@@ -8,7 +8,7 @@ from trade_lab.notify import NotifyError, send_telegram
 
 @pytest.mark.parametrize(
     "code, uncertain",
-    [(400, False), (429, False), (500, True), (503, True), (408, True)],
+    [(400, False), (429, False), (500, True), (503, True), (408, True), (425, True)],
 )
 def test_http_delivery_classification(monkeypatch, code, uncertain):
     def boom(request, timeout=None):
