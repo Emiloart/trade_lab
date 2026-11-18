@@ -30,6 +30,8 @@ Defaults are zero-cost for backwards compatibility. A zero-cost run is not a rea
 
 When an `InstrumentSpec` is supplied to `run_backtest()`, sizing and P&L use that instrument's tick size, tick value, quantity unit, minimum/step/maximum quantity, and an explicit `value_to_account_rate`. This supports share- and lot-denominated instruments without treating one lot as one share. The conversion rate must convert the tick-value currency into the account currency; it is not fetched or guessed automatically. Without an instrument specification, the legacy price-unit calculation remains for compatibility.
 
+For instrument-aware runs, spread and slippage are specified in price points, while `commission_per_unit` is account-currency commission per quantity unit per side. The legacy no-instrument path retains its historical price-unit commission convention; do not mix that legacy convention with broker commission figures.
+
 OHLC stop/target triggers remain conservative: stop wins same-candle collisions, stop gaps fill at the worse open, and target gaps do not receive favorable improvement. Entry is still modeled at the signal bar close; this is a research convention, not a guarantee that a live order can fill there. Open trades are marked separately and excluded from realized metrics.
 
 ## Interpretation
