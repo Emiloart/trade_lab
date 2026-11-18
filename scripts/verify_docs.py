@@ -109,7 +109,12 @@ def verify_workflow_contract() -> None:
             fail(f"trading workflow is missing required safety contract: {required}")
 
     ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    for required in ("ruff check trade_lab tests", "pytest -q", "python scripts/verify_docs.py"):
+    required_checks = (
+        "ruff check trade_lab backtests/_common.py backtests/vwap_backtest.py backtests/recent_backtest.py tests",
+        "pytest -q",
+        "python scripts/verify_docs.py",
+    )
+    for required in required_checks:
         if required not in ci:
             fail(f"CI workflow is missing required check: {required}")
 
@@ -126,7 +131,6 @@ def main() -> int:
         verify_local_links(path, text)
         verify_commands(text, path.relative_to(ROOT).as_posix())
 
-    # The architecture module inventory must match the maintained package.
     actual_modules = {
         path.name for path in (ROOT / "trade_lab").glob("*.py") if path.name != "__init__.py"
     }
@@ -139,8 +143,6 @@ def main() -> int:
             f"stale={sorted(documented_modules - actual_modules)}"
         )
 
-    # Every environment variable read by the app or exposed by StrategyConfig
-    # must appear in the configuration reference.
     config_source = (ROOT / "trade_lab" / "config.py").read_text(encoding="utf-8")
     configured = set(re.findall(r'^\s*"([A-Z][A-Z0-9_]*)":\s*"[^"]+"', config_source, re.MULTILINE))
     runtime_source = "\n".join(
@@ -154,7 +156,6 @@ def main() -> int:
     if required_vars - documented_vars:
         fail(f"undocumented application environment variables: {sorted(required_vars - documented_vars)}")
 
-    # Numeric environment defaults in the reference must match dataclass defaults.
     config_tree = ast.parse(config_source)
     strategy_class = next(
         node for node in config_tree.body
@@ -205,7 +206,6 @@ def main() -> int:
             f"docs={documented_state_default}, code={state_default_match.group(1)}"
         )
 
-    # Workflow-injected variables and secret names must also be explained.
     workflow_files = sorted((ROOT / ".github" / "workflows").glob("*.yml"))
     for workflow in workflow_files:
         workflow_text = workflow.read_text(encoding="utf-8")
@@ -222,7 +222,6 @@ def main() -> int:
 
     verify_workflow_contract()
 
-    # Every argparse option is listed in the relevant operator reference.
     live_options = cli_options(ROOT / "trade_lab" / "live.py")
     config_docs = texts[ROOT / "docs" / "configuration.md"]
     missing_live_options = {option for option in live_options if option not in config_docs}
