@@ -1,83 +1,92 @@
 # Trade Lab
 
-A Python market-monitoring and Telegram alerting system for a VWAP pullback strategy. Live monitoring and maintained historical backtests share one strategy implementation. Trade Lab does not yet place broker orders or reconcile live positions.
+Trade Lab is a Python research and market-monitoring platform for systematic trading strategies. It brings strategy evaluation, historical execution simulation, multi-instrument research, and live market alerts into one codebase.
 
-## Current capabilities
+The project is built around a VWAP pullback strategy. Its research and monitoring workflows share the same strategy logic, while instrument specifications and execution assumptions remain explicit inputs to the analysis.
 
-- New York timezone-aware session handling and completed-bar filtering.
-- Shared VWAP, true-range, ATR, and first-signal logic for live monitoring and historical backtests.
-- Configurable spread, slippage, and commission simulation with risk-adjusted sizing.
-- Trade ledger with gross/net P&L, execution costs, risk budget, and R-multiple metrics.
-- Chronological multi-instrument research with per-symbol economics, costs, provenance, and holdout evaluation.
-- Telegram alerting with validated, checkpointed state persistence.
-- Pytest, Ruff, and documentation verification in GitHub Actions.
+## What it does
 
-## Architecture direction
+- **Market monitoring:** evaluates completed market bars with New York session awareness and sends Telegram alerts.
+- **Historical backtesting:** evaluates strategy signals against historical price data using next-bar execution, modeled spread, slippage, commissions, and risk-based position sizing.
+- **Multi-instrument research:** compares instruments using their own trading specifications, account-currency conversion, execution costs, and data provenance.
+- **Walk-forward evaluation:** separates chronological training, validation, test, and optional holdout periods to support disciplined strategy assessment.
+- **Reproducible research:** validates historical datasets and records configuration, data fingerprints, provenance, and experiment artifacts.
+- **Engineering quality:** includes automated tests, linting, and documentation checks in GitHub Actions.
 
-Instrument economics and broker execution are separate interfaces. The current foundation supports equity, ETF, index CFD, FX, futures, crypto, and other asset-class identifiers; each tradable instrument supplies its own tick economics and quantity constraints. Broker integrations implement a shared asynchronous adapter contract rather than being embedded in strategy logic.
+## System design
 
-Execution modes are explicit: disabled, paper, demo, and live. Broker submission is blocked in disabled/paper modes, demo mode rejects live accounts, and live mode is disabled unless separately enabled. These are foundations only; concrete broker adapters and automated order execution are not implemented.
+Trade Lab separates four concerns:
 
-## Important limitations
+1. **Strategy logic** — shared calculations and signal generation for historical evaluation and market monitoring.
+2. **Instrument specifications** — tick size, tick value, contract economics, and quantity constraints for each instrument.
+3. **Execution simulation** — entry and exit assumptions, transaction costs, position sizing, and trade accounting.
+4. **Research and monitoring workflows** — reproducible historical experiments alongside session-aware monitoring and alert delivery.
 
-- Zero-cost backtests remain the default in the legacy Python API for backwards compatibility; the research CLI requires explicit cost assumptions.
-- QQQ/NQ reference conversion is not a validated Exness US100 execution price.
-- Historical input snapshots are not versioned; Yahoo Finance coverage and quality vary.
-- No broker adapter or live order execution is implemented yet.
-- A backtest is not evidence of profitability.
+This separation keeps strategy rules independent of instrument economics and execution assumptions. It also makes research inputs and resulting trade outcomes inspectable rather than hiding them behind a single backtest score.
 
 ## Quick start
 
-Requires Python 3.10 or newer.
+Trade Lab requires Python 3.10 or newer.
 
-~~~bash
+Clone the repository and create a virtual environment:
+
+```bash
 git clone https://github.com/Emiloart/trade_lab.git
 cd trade_lab
 python -m venv .venv
-~~~
+```
 
 Activate the environment:
 
-~~~bash
+```bash
 # macOS / Linux
 source .venv/bin/activate
 
 # Windows PowerShell
-.venv\Scripts\Activate.ps1
-~~~
+.venv\\Scripts\\Activate.ps1
+```
 
-Install:
+Install the project and development dependencies:
 
-~~~bash
+```bash
 python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
-~~~
+```
 
-## Run the monitor
+## Run market monitoring
 
-~~~bash
+Start the monitor in dry-run mode:
+
+```bash
 python -m trade_lab.live --dry-run
-~~~
+```
 
 ## Run multi-instrument research
 
-Prepare a JSON configuration with verified instrument specifications, explicit
-cost assumptions, account-currency conversion rates, and CSV data provenance.
-Then run:
+Create a JSON research configuration containing the instrument specifications, historical CSV inputs, data provenance, account-currency conversion rates, and execution-cost assumptions for each instrument.
 
-~~~bash
+Run the research pipeline:
+
+```bash
 python -m trade_lab.research_cli --config research.json --output reports/walk-forward.csv
-~~~
+```
 
-See [Research methodology](docs/research.md) and the
-[research CLI configuration guide](docs/research_cli.md) for details. See
-[Backtesting](docs/backtesting.md) for execution-cost assumptions.
+The command writes the walk-forward report and its reproducibility artifacts. Configuration and data requirements are documented in the research guides.
 
-## Tests and lint
+## Documentation
 
-~~~bash
+- [Architecture](docs/architecture.md) — system boundaries and component responsibilities.
+- [Strategy](docs/strategy.md) — strategy rules, indicators, and signal behavior.
+- [Backtesting](docs/backtesting.md) — historical execution model and cost assumptions.
+- [Research methodology](docs/research.md) — experiment design, walk-forward evaluation, and interpretation.
+- [Research CLI](docs/research_cli.md) — configuration format and command usage.
+
+## Development checks
+
+Run the test suite, lint checks, and documentation verification:
+
+```bash
 python -m pytest -q
 ruff check .
 python scripts/verify_docs.py
-~~~
-
+```
