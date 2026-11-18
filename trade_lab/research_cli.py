@@ -6,12 +6,11 @@ import hashlib
 import json
 import math
 import os
-import shutil
 import sys
 import tempfile
 from collections.abc import Mapping
 from dataclasses import asdict, fields
-from datetime import datetime, time
+from datetime import datetime, time, timezone
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -141,7 +140,6 @@ def _write_artifacts(
     *,
     config_bytes: bytes,
     config_hash: str,
-    config: dict[str, Any],
     sources: dict[str, dict[str, Any]],
     variants: list[ResearchVariant],
     risk: AccountRiskConfig,
@@ -158,7 +156,7 @@ def _write_artifacts(
         "config_sha256": config_hash,
         "config_snapshot": "research-config.json",
         "code_revision": os.environ.get("GITHUB_SHA") or os.environ.get("TRADE_LAB_REVISION"),
-        "created_at_utc": datetime.now().astimezone().isoformat(),
+        "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "risk": asdict(risk),
         "variants": [
             {"name": variant.name, "strategy": asdict(variant.config)}
@@ -319,7 +317,7 @@ def run_from_config(
         if artifact_dir is not None
         else destination.with_suffix(".artifacts")
     )
-    if artifacts in input_paths or destination == artifacts or destination in artifacts.parents:
+    if artifacts in input_paths or destination == artifacts or artifacts in destination.parents:
         raise ValueError("artifact directory must not overwrite or contain an input or report")
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary_name: str | None = None
@@ -339,7 +337,7 @@ def run_from_config(
 
     config_hash = hashlib.sha256(config_bytes).hexdigest()
     _write_artifacts(
-        artifacts, config_bytes=config_bytes, config_hash=config_hash, config=config,
+        artifacts, config_bytes=config_bytes, config_hash=config_hash,
         sources=source_artifacts, variants=variants, risk=risk,
     )
     warning_count = sum(
