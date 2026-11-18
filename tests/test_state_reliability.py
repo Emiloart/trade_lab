@@ -51,8 +51,15 @@ def test_cached_state_must_exist(tmp_path):
 @pytest.mark.parametrize(
     "payload",
     [
-        '{"version": 1, "days": {"2026-11-18": {"entries": [{"status": [], "side": "LONG", "bar_time": "2026-11-18T16:10:00+00:00"}], "realized_pnl": 0}}}',
-        '{"version": 1, "days": {"2026-11-18": {"entries": [{"status": "sent", "side": "LONG", "bar_time": "2026-11-18T16:10:00+00:00", "entry": 1, "lots": Infinity}], "realized_pnl": 0}}}',
+        (
+            '{"version": 1, "days": {"2026-11-18": {"entries": [{"status": [], '
+            '"side": "LONG", "bar_time": "2026-11-18T16:10:00+00:00"}], "realized_pnl": 0}}}'
+        ),
+        (
+            '{"version": 1, "days": {"2026-11-18": {"entries": [{"status": "sent", '
+            '"side": "LONG", "bar_time": "2026-11-18T16:10:00+00:00", '
+            '"entry": 1, "lots": Infinity}], "realized_pnl": 0}}}'
+        ),
         '{"version": 1, "days": {"20261118": {"entries": [], "realized_pnl": 0}}}',
         '{"version": 1, "days": {"2026-11-18": {"entries": [], "realized_pnl": 1e999}}}',
     ],
