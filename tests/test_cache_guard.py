@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, time
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -11,7 +11,7 @@ NY = ZoneInfo("America/New_York")
 
 def test_cache_miss_before_session_bootstraps_empty_state(tmp_path):
     store = StateStore(tmp_path / "state.json")
-    result = guard_cache(store, None, datetime(2026, 11, 18, 9, 0, tzinfo=NY), __import__("datetime").time(10))
+    result = guard_cache(store, None, datetime(2026, 11, 18, 9, 0, tzinfo=NY), time(10))
     assert result == "initialized"
     store.validate_cached_state()
 
