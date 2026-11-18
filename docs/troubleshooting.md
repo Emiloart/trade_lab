@@ -29,7 +29,7 @@ Recovery procedure:
 6. Run tests and a local dry run against a copy of the restored state.
 7. Re-enable scheduled delivery only after verifying the recovered alert history and the next scheduled run.
 
-If it is impossible to determine whether an alert was delivered, reconcile Telegram history manually before resuming. Never delete a `delivery_unknown` or `delivery_pending` entry merely to make the bot run again. The system uses a checkpoint-before-send, at-most-once recovery policy for scheduled alerts. It cannot guarantee exactly-once delivery: after an interruption, an alert may require manual confirmation and may be left unsent rather than risk a duplicate.
+If it is impossible to determine whether an alert was delivered, reconcile Telegram history manually before resuming. Never delete a `delivery_unknown` or `delivery_pending` entry merely to make the bot run again. The scheduled system uses a checkpoint-before-send, at-most-once recovery policy for pending alerts. It cannot guarantee exactly-once delivery: after an interruption, an alert may require manual confirmation and may be left unsent rather than risk a duplicate.
 
 ## Actions cache appears missing or stale
 
@@ -40,7 +40,7 @@ If state continuity is uncertain:
 1. Disable scheduled alerting.
 2. Inspect the relevant workflow runs and their logs for restore and save outcomes.
 3. Compare the restored state with Telegram history for the same New York date.
-4. Restore or reconstruct the state before resuming.
+4. Restore or reconstruct the state before resuming. The cache guard will reject a same-day cache miss during the session; do not bypass it by creating an empty state file.
 
 A cache miss during the session is not proof that no alert was sent; the workflow stops rather than assuming an empty ledger. Cache retention and availability are not a durable database. If all same-day cache entries are lost, reconcile Telegram history and reconstruct state before any manual bootstrap.
 
