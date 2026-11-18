@@ -161,7 +161,11 @@ def _write_artifacts(
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "risk": asdict(risk),
         "variants": [
-            {"name": variant.name, "strategy": asdict(variant.config)}
+            {
+                "name": variant.name,
+                "sensitivity_group": variant.sensitivity_group,
+                "strategy": asdict(variant.config),
+            }
             for variant in variants
         ],
         "datasets": {
