@@ -25,11 +25,11 @@ def block_bootstrap_summary(
     """Estimate expectancy and win-rate intervals by resampling date blocks."""
     if not 0 < confidence_level < 1:
         raise ValueError("confidence_level must be between 0 and 1")
-    if isinstance(bootstrap_samples, bool) or bootstrap_samples < 200:
+    if isinstance(bootstrap_samples, bool) or not isinstance(bootstrap_samples, int) or bootstrap_samples < 200:
         raise ValueError("bootstrap_samples must be an integer >= 200")
-    if isinstance(block_length, bool) or block_length < 1:
+    if isinstance(block_length, bool) or not isinstance(block_length, int) or block_length < 1:
         raise ValueError("block_length must be a positive integer")
-    if isinstance(family_size, bool) or family_size < 1:
+    if isinstance(family_size, bool) or not isinstance(family_size, int) or family_size < 1:
         raise ValueError("family_size must be a positive integer")
 
     closed = (
