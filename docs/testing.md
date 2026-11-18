@@ -25,6 +25,7 @@ Install development dependencies:
 python -m pip install -e ".[dev]"
 python -m pytest -q
 ruff check trade_lab tests
+python scripts/verify_docs.py
 ```
 
 The CI workflow at `.github/workflows/ci.yml` runs pytest, Ruff, and `scripts/verify_docs.py` on pushes to main and refactor branches, pull requests, and manual dispatches. The documentation verifier checks local Markdown links, executable Python module/script paths and Ruff targets in fenced commands and workflow run steps, CLI options, environment-variable references, the package module inventory, and workflow file references.
