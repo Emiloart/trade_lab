@@ -42,12 +42,25 @@ jobs:
           echo "key=trade-state-$state_date-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
 
       - name: Restore latest state for the New York trading day
+        id: restore-state
         uses: actions/cache/restore@v4
         with:
-          path: .state/state.json
+          path: |
+            .state/state.json
+            .state/state.json.bak
           key: ${{ steps.state.outputs.key }}
           restore-keys: |
             trade-state-${{ steps.state.outputs.date }}-
+
+      # A cache miss before 10:00 New York time is the only safe first-run
+      # bootstrap window. During the session, a miss could mean eviction and
+      # loss of today's alert history, so fail closed.
+      - name: Validate or bootstrap state cache
+        if: github.event_name == 'schedule'
+        env:
+          CACHE_MATCHED_KEY: ${{ steps.restore-state.outputs.cache-matched-key }}
+        run: |
+          python -m trade_lab.cache_guard --matched-key "$CACHE_MATCHED_KEY" --state-file .state/state.json
 
       - name: Run live monitor
         env:
@@ -69,5 +82,7 @@ jobs:
         if: success() && github.event_name == 'schedule' && hashFiles('.state/state.json') != ''
         uses: actions/cache/save@v4
         with:
-          path: .state/state.json
+          path: |
+            .state/state.json
+            .state/state.json.bak
           key: ${{ steps.state.outputs.key }}
