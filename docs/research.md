@@ -19,8 +19,10 @@ They are candidate filters, not established improvements.
 ## Reclaim quality study
 
 Use `measure_reclaim_outcomes()` on prepared bars to measure every qualifying
-reclaim candidate's subsequent follow-through, maximum favorable excursion
-(MFE), and maximum adverse excursion (MAE) at fixed bar horizons. Outcomes are
+reclaim candidate's pullback penetration in ATR, directional VWAP slope, ATR
+percentage, close distance from VWAP in ATR, reclaim candle range in ATR,
+subsequent follow-through, maximum favorable excursion (MFE), and maximum
+adverse excursion (MAE) at fixed bar horizons. Outcomes are
 normalized by the initial stop distance in R and horizons are restricted to
 the same New York session date. This makes reclaim quality measurable without
 confusing candidate outcomes with the strategy's one-trade-per-day execution
