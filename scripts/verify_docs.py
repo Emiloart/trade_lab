@@ -47,7 +47,7 @@ def verify_command_line(raw_line: str, source: str) -> None:
             if not module_path.exists() and not package_path.exists():
                 fail(f"unknown Python module in {source}: {target}")
         else:
-            script_path = ROOT / target.replace("\\\\", "/")
+            script_path = ROOT / target.replace("\\", "/")
             if not script_path.is_file():
                 fail(f"unknown Python script in {source}: {target}")
 
@@ -79,6 +79,39 @@ def cli_options(module: Path) -> set[str]:
             if isinstance(value, str) and value.startswith("--"):
                 found.add(value)
     return found
+
+
+def verify_workflow_contract() -> None:
+    trading_path = ROOT / ".github" / "workflows" / "trading_bot.yml"
+    trading = trading_path.read_text(encoding="utf-8")
+    ordered_markers = [
+        "id: restore-state",
+        "python -m trade_lab.cache_guard",
+        "python -m trade_lab.live --prepare-alert",
+        "key: ${{ steps.state.outputs.key }}-checkpoint",
+        "python -m trade_lab.live --deliver-pending",
+        "key: ${{ steps.state.outputs.key }}-final",
+    ]
+    positions = [trading.find(marker) for marker in ordered_markers]
+    if any(position < 0 for position in positions) or positions != sorted(positions):
+        fail("trading workflow no longer follows restore → guard → prepare → checkpoint → deliver → final-save order")
+    for required in (
+        ".state/state.json",
+        ".state/state.json.bak",
+        "cache-matched-key",
+        "restore-keys:",
+        "cancel-in-progress: false",
+        "if: success()",
+        "github.event_name == 'schedule'",
+        "--dry-run",
+    ):
+        if required not in trading:
+            fail(f"trading workflow is missing required safety contract: {required}")
+
+    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    for required in ("ruff check trade_lab tests", "pytest -q", "python scripts/verify_docs.py"):
+        if required not in ci:
+            fail(f"CI workflow is missing required check: {required}")
 
 
 def main() -> int:
@@ -173,6 +206,8 @@ def main() -> int:
         workflow_source = workflow.relative_to(ROOT).as_posix()
         for workflow_line in workflow_text.splitlines():
             verify_command_line(workflow_line, workflow_source)
+
+    verify_workflow_contract()
 
     # Every argparse option is listed in the relevant operator reference.
     live_options = cli_options(ROOT / "trade_lab" / "live.py")
