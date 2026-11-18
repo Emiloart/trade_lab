@@ -117,7 +117,7 @@ def signal_for_bar(
     return None
 
 
-def first_signal(prepared: pd.DataFrame, cfg: StrategyConfig, day: date) -> Signal | None:
+def first_signal(prepared: pd.DataFrame, cfg: StrategyParameters, day: date) -> Signal | None:
     """First setup of a New York trading day, scanning in-window bars in order.
 
     The strategy takes at most one trade per day, so the first qualifying bar
@@ -135,7 +135,7 @@ def first_signal(prepared: pd.DataFrame, cfg: StrategyConfig, day: date) -> Sign
     return None
 
 
-def latest_signal(prepared: pd.DataFrame, cfg: StrategyConfig) -> Signal | None:
+def latest_signal(prepared: pd.DataFrame, cfg: StrategyParameters) -> Signal | None:
     """Signal for the newest bar of a prepared frame, only inside the window."""
     if prepared.empty:
         return None
