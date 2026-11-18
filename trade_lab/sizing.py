@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 
 from .config import StrategyConfig
+from .instruments import InstrumentSpec
 
 _EPS = 1e-9
 
@@ -50,7 +51,7 @@ def daily_loss_exceeded(realized_pnl: float, cfg: StrategyConfig) -> bool:
 def quantity_for_instrument_risk(
     risk_budget: float,
     stop_distance: float,
-    instrument: "InstrumentSpec",
+    instrument: InstrumentSpec,
     value_to_account_rate: float = 1.0,
 ) -> float:
     """Size a share/contract/lot quantity from broker-supplied instrument economics.
@@ -58,8 +59,6 @@ def quantity_for_instrument_risk(
     Quantity is rounded down to the instrument step and capped at its maximum.
     Returns zero if the risk budget cannot fund the minimum tradable quantity.
     """
-    from .instruments import InstrumentSpec
-
     if not isinstance(instrument, InstrumentSpec):
         raise TypeError("instrument must be an InstrumentSpec")
     if isinstance(risk_budget, bool) or not math.isfinite(risk_budget) or risk_budget <= 0:
@@ -76,7 +75,7 @@ def quantity_for_instrument_risk(
 def instrument_realized_risk(
     quantity: float,
     stop_distance: float,
-    instrument: "InstrumentSpec",
+    instrument: InstrumentSpec,
     value_to_account_rate: float = 1.0,
 ) -> float:
     """Account-currency stop risk for a quantity using instrument tick economics."""
