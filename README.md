@@ -69,7 +69,8 @@ The live monitor uses these environment variables:
 | `LOT_STEP` | `0.01` | Lot increment |
 | `BOT_TOKEN` | — | Telegram bot token |
 | `CHAT_ID` | — | Telegram destination chat ID |
-| `STATE_FILE` | `.state/state.json` | Optional state-file override |\n| `TRADE_LAB_RUN_ID` | workflow-generated | Internal scheduled-attempt identifier; do not set manually |
+| `STATE_FILE` | `.state/state.json` | Optional state-file override |
+| `TRADE_LAB_RUN_ID` | workflow-generated | Internal scheduled-attempt identifier; do not set manually |
 
 Set Telegram credentials in your shell or repository Actions secrets. Never commit credentials or state files.
 
