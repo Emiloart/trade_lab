@@ -25,7 +25,7 @@ The main implementation is the `trade_lab/` package:
 1. Load configuration from defaults and supported environment variables.
 2. Determine the current timestamp (UTC by default) and convert it to New York time for session decisions.
 3. Stop if outside the configured 10:00–15:00 New York window.
-4. Load JSON state; stop if the New York trading day is already closed by a sent or missed setup.
+4. Load JSON state; stop if the New York trading day already has a sent, missed, pending, or uncertain delivery entry.
 5. Apply the daily realized-loss gate using manually recorded P&L.
 6. Fetch QQQ 5-minute bars, normalize timestamps to UTC, remove the still-open candle, and reject stale data.
 7. Calculate session VWAP and ATR, then scan the current New York day for its first qualifying setup.
