@@ -39,7 +39,11 @@ When changing persistence or Actions cache behavior, verify at least:
 - A successful scheduled run can save an application-created state file.
 - A failed run cannot save a newly manufactured empty state file.
 - A manual dry run does not write or save scheduled state.
-- A cache miss before 10:00 New York time may initialize and checkpoint the empty first-run state.\n- A cache miss at or after 10:00 New York time fails closed.\n- A pending alert is checkpointed before Telegram is called.\n- A pending alert restored from an earlier workflow attempt becomes `delivery_unknown` and is not sent again automatically.\n- A successful send is followed by a final cache save; if that save fails, the pre-send pending checkpoint remains.
+- A cache miss before 10:00 New York time may initialize and checkpoint the empty first-run state.
+- A cache miss at or after 10:00 New York time fails closed.
+- A pending alert is checkpointed before Telegram is called.
+- A pending alert restored from an earlier workflow attempt becomes `delivery_unknown` and is not sent again automatically.
+- A successful send is followed by a final cache save; if that save fails, the pre-send pending checkpoint remains.
 
 The workflow's conditional save is reviewed in source; GitHub Actions must also be checked for the exact commit after it runs.
 
