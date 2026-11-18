@@ -42,7 +42,7 @@ jobs:
           echo "key=trade-state-$state_date-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
 
       - name: Restore latest state for the New York trading day
-        id: restore-state
+        id: restore_state
         uses: actions/cache/restore@v4
         with:
           path: |
@@ -58,7 +58,7 @@ jobs:
       - name: Validate or bootstrap state cache
         if: github.event_name == 'schedule'
         env:
-          CACHE_MATCHED_KEY: ${{ steps.restore-state.outputs.cache-matched-key }}
+          CACHE_MATCHED_KEY: ${{ steps.restore_state.outputs['cache-matched-key'] }}
         run: |
           python -m trade_lab.cache_guard --matched-key "$CACHE_MATCHED_KEY" --state-file .state/state.json
 
