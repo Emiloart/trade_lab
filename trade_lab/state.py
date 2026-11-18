@@ -100,7 +100,9 @@ class StateStore:
                     if not isinstance(entry.get("message"), str) or not entry["message"]:
                         raise StateError(f"Missing pending message in state file {path}: {day}")
                     if not isinstance(entry.get("run_id"), str) or not entry["run_id"]:
-                        raise StateError(f"Missing pending run identifier in state file {path}: {day}")
+                        raise StateError(
+                            f"Missing pending run identifier in state file {path}: {day}"
+                        )
         return data
 
     def _load(self, require_existing: bool = False) -> dict[str, Any]:
