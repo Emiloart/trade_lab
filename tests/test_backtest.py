@@ -149,7 +149,7 @@ def test_spread_and_slippage_are_applied_adversely_on_both_fills():
     ).iloc[0]
     assert trade["Entry_Fill"] == pytest.approx(trade["Entry_Reference"] + 0.2)
     assert trade["Exit_Fill"] == pytest.approx(trade["Exit"] - 0.2)
-    assert trade["Execution_Costs_$"] == pytest.approx(0.4 * trade["Units"])
+    assert trade["Execution_Costs_$"] == pytest.approx(round(0.4 * trade["Units"], 2))
 
 
 def test_signal_quality_and_executable_performance_are_reported_separately():
