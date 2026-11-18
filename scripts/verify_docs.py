@@ -194,7 +194,7 @@ def main() -> int:
 
     live_source = (ROOT / "trade_lab" / "live.py").read_text(encoding="utf-8")
     state_default_match = re.search(
-        r'os\\.environ\\.get\\("STATE_FILE",\\s*"([^"]+)"', live_source
+        r'os\.environ\.get\("STATE_FILE",\s*"([^"]+)"', live_source
     )
     if not state_default_match:
         fail("could not locate the STATE_FILE fallback in trade_lab/live.py")
