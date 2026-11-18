@@ -96,7 +96,7 @@ def test_reclaim_outcomes_measure_forward_excursion_in_r():
             "Low": [99.9, 100.8, 101.0, 101.1],
             "Close": [101.0, 101.5, 102.0, 101.8],
             "Volume": [1000.0] * 4,
-            "VWAP": [100.0] * 4,
+            "VWAP": [100.0, 101.0, 101.5, 101.5],
             "ATR": [1.0] * 4,
             "ATR_PCT": [1.0] * 4,
             "VWAP_SLOPE_ATR": [0.0] * 4,
@@ -107,8 +107,8 @@ def test_reclaim_outcomes_measure_forward_excursion_in_r():
     assert len(outcomes) == 2  # candidates at bars 0 and 1 have a complete 2-bar horizon
     first = outcomes.iloc[0]
     assert first["direction"] == "LONG"
-    assert first["mfe_r"] == pytest.approx(2.5)
-    assert first["mae_r"] == pytest.approx(0.0)
+    assert first["mfe_r"] == pytest.approx(1.5)
+    assert first["mae_r"] == pytest.approx(0.2)
     assert first["follow_through_r"] == pytest.approx(1.0)
 
 

@@ -44,7 +44,7 @@ def prepare(df: pd.DataFrame, cfg: StrategyParameters) -> pd.DataFrame:
 
 
 def signal_for_bar(
-    ts: pd.Timestamp, bar: pd.Series, cfg: StrategyConfig
+    ts: pd.Timestamp, bar: pd.Series, cfg: StrategyParameters
 ) -> Signal | None:
     """Evaluate one closed bar that already has VWAP and ATR values.
 
