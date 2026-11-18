@@ -69,9 +69,19 @@ def signal_for_bar(
     risk = cfg.atr_stop_mult * float(bar_atr)
 
     if close > vwap and low <= vwap * (1 + cfg.vwap_tolerance):
-        if filters.max_pullback_atr is not None and max(0.0, float(vwap) - low) / float(bar_atr) > filters.max_pullback_atr:
+        if (
+            filters.max_pullback_atr is not None
+            and max(0.0, float(vwap) - low) / float(bar_atr)
+            > filters.max_pullback_atr
+        ):
             return None
-        if filters.min_directional_vwap_slope_atr is not None and (pd.isna(slope) or float(slope) < filters.min_directional_vwap_slope_atr):
+        if (
+            filters.min_directional_vwap_slope_atr is not None
+            and (
+                pd.isna(slope)
+                or float(slope) < filters.min_directional_vwap_slope_atr
+            )
+        ):
             return None
         return Signal(
             time=ts,
@@ -82,9 +92,19 @@ def signal_for_bar(
             risk_distance=risk,
         )
     if close < vwap and high >= vwap * (1 - cfg.vwap_tolerance):
-        if filters.max_pullback_atr is not None and max(0.0, high - float(vwap)) / float(bar_atr) > filters.max_pullback_atr:
+        if (
+            filters.max_pullback_atr is not None
+            and max(0.0, high - float(vwap)) / float(bar_atr)
+            > filters.max_pullback_atr
+        ):
             return None
-        if filters.min_directional_vwap_slope_atr is not None and (pd.isna(slope) or -float(slope) < filters.min_directional_vwap_slope_atr):
+        if (
+            filters.min_directional_vwap_slope_atr is not None
+            and (
+                pd.isna(slope)
+                or -float(slope) < filters.min_directional_vwap_slope_atr
+            )
+        ):
             return None
         return Signal(
             time=ts,

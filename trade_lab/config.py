@@ -115,12 +115,12 @@ class StrategyConfig:
             "LOT_STEP": "lot_step",
         }
         overrides: dict[str, float] = {}
-        for var, field in mapping.items():
+        for var, config_field in mapping.items():
             raw = env.get(var)
             if raw is None or raw.strip() == "":
                 continue
             try:
-                overrides[field] = float(raw)
+                overrides[config_field] = float(raw)
             except ValueError as exc:
                 raise ValueError(f"{var} must be a number, got {raw!r}") from exc
             if not math.isfinite(overrides[field]):
