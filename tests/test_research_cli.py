@@ -68,3 +68,11 @@ def test_cli_rejects_duplicate_json_keys(tmp_path, capsys):
     config_path.write_text('{"train_days": 1, "train_days": 2}', encoding="utf-8")
     assert main(["--config", str(config_path), "--output", str(tmp_path / "out.csv")]) == 2
     assert "duplicate JSON key" in capsys.readouterr().err
+
+def test_cli_refuses_to_overwrite_an_input_dataset(tmp_path, capsys):
+    config_path, _ = _fixture(tmp_path)
+    csv_path = tmp_path / "fixture.csv"
+    original = csv_path.read_bytes()
+    assert main(["--config", str(config_path), "--output", str(csv_path)]) == 2
+    assert csv_path.read_bytes() == original
+    assert "must not overwrite" in capsys.readouterr().err
