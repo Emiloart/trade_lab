@@ -29,11 +29,11 @@ Recovery procedure:
 6. Run tests and a local dry run against a copy of the restored state.
 7. Re-enable scheduled delivery only after verifying the recovered alert history and the next scheduled run.
 
-If it is impossible to determine whether an alert was delivered, reconcile Telegram history manually before resuming. The system cannot prove exactly-once delivery.
+If it is impossible to determine whether an alert was delivered, reconcile Telegram history manually before resuming. Never delete a `delivery_unknown` or `delivery_pending` entry merely to make the bot run again. The system cannot prove exactly-once delivery.
 
 ## Actions cache appears missing or stale
 
-The workflow uses a date-scoped cache restore prefix. Cache entries are immutable; each run writes a unique key. The workflow now saves only after a successful scheduled run and only if the application has created a state file. It does not create a blank state file as a fallback.
+The workflow restores the newest same-day cache using a date-scoped prefix. Cache entries are immutable. A cache miss may bootstrap an empty state only before 10:00 New York time; a miss during the session stops the run. Each scheduled attempt checkpoints its pending intent before Telegram delivery and writes a final cache entry after the outcome is persisted. Both the primary state and its `.bak` recovery copy are cached.
 
 If state continuity is uncertain:
 
@@ -42,7 +42,7 @@ If state continuity is uncertain:
 3. Compare the restored state with Telegram history for the same New York date.
 4. Restore or reconstruct the state before resuming.
 
-A cache miss is not proof that no alert was sent. Cache retention and availability are not a durable ledger.
+A cache miss during the session is not proof that no alert was sent; the workflow stops rather than assuming an empty ledger. Cache retention and availability are not a durable database. If all same-day cache entries are lost, reconcile Telegram history and reconstruct state before any manual bootstrap.
 
 ## Telegram failures or uncertain delivery
 
