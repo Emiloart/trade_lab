@@ -11,7 +11,7 @@ Tests use synthetic bars and fakes. They establish deterministic conformance to 
 ```bash
 python -m pip install -e ".[dev]"
 python -m pytest -q
-ruff check trade_lab backtests/_common.py backtests/vwap_backtest.py backtests/recent_backtest.py tests
+ruff check .
 python scripts/verify_docs.py
 ```
 
