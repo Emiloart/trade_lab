@@ -54,7 +54,7 @@ Never put real tokens, chat IDs tied to private accounts, or credentials in sour
 ## CLI options
 
 ```text
-python -m trade_lab.live [--dry-run] [--state-file PATH] [--now ISO_TIMESTAMP]
+python -m trade_lab.live [--dry-run | --prepare-alert | --deliver-pending] [--state-file PATH] [--now ISO_TIMESTAMP]
 python -m trade_lab.live --record-pnl AMOUNT
 ```
 
