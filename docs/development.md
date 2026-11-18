@@ -26,7 +26,7 @@ python -m pytest
 Run Ruff:
 
 ```bash
-ruff check trade_lab tests
+ruff check .
 python scripts/verify_docs.py
 ```
 
