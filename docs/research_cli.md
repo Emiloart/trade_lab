@@ -49,9 +49,9 @@ and data source being tested.
 ~~~json
 {
   "train_days": 120,
-  "validation_days": 20,
-  "test_days": 20,
-  "step_days": 20,
+  "validation_days": 60,
+  "test_days": 60,
+  "step_days": 60,
   "final_holdout_days": 60,
   "minimum_validation_trades": 30,
   "minimum_test_trades": 30,
@@ -153,6 +153,8 @@ The following top-level fields are optional. Defaults are shown:
 - `minimum_validation_trades`: 30 closed trades required in the validation
   sample before the selected candidate can pass.
 - `minimum_test_trades`: 30 closed trades required in test and final holdout.
+  The current strategy can execute at most one trade per New York session, so
+  the corresponding windows must be at least 30 sessions long.
 - `confidence_level`: 0.95 percentile interval confidence level.
 - `bootstrap_samples`: 2,000 moving-block bootstrap resamples; minimum 200.
 - `bootstrap_block_length`: 5 consecutive New York trading dates per sampled
