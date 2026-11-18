@@ -121,6 +121,44 @@ def main() -> int:
     if required_vars - documented_vars:
         fail(f"undocumented application environment variables: {sorted(required_vars - documented_vars)}")
 
+    # Numeric environment defaults in the reference must match dataclass defaults.
+    config_tree = ast.parse(config_source)
+    strategy_class = next(
+        node for node in config_tree.body
+        if isinstance(node, ast.ClassDef) and node.name == "StrategyConfig"
+    )
+    defaults: dict[str, object] = {}
+    for node in strategy_class.body:
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            try:
+                defaults[node.target.id] = ast.literal_eval(node.value)
+            except (ValueError, TypeError):
+                continue
+    config_mapping = dict(
+        re.findall(r'^\\s*"([A-Z][A-Z0-9_]*)":\\s*"([^"]+)"', config_source, re.MULTILINE)
+    )
+    table_defaults = {
+        name: value
+        for name, value in re.findall(
+            r"^\\| `([A-Z][A-Z0-9_]*)` \\| ([^|]+) \\|",
+            texts[ROOT / "docs" / "configuration.md"],
+            re.MULTILINE,
+        )
+    }
+    for env_name, field_name in config_mapping.items():
+        if field_name not in defaults or env_name not in table_defaults:
+            fail(f"cannot verify documented default for {env_name}")
+        try:
+            documented_default = float(table_defaults[env_name].strip())
+            implemented_default = float(defaults[field_name])
+        except (TypeError, ValueError, OverflowError):
+            fail(f"non-numeric default needs an explicit verifier rule: {env_name}")
+        if documented_default != implemented_default:
+            fail(
+                f"default mismatch for {env_name}: docs={documented_default}, "
+                f"code={implemented_default}"
+            )
+
     # Workflow-injected variables and secret names must also be explained.
     workflow_files = sorted((ROOT / ".github" / "workflows").glob("*.yml"))
     for workflow in workflow_files:
