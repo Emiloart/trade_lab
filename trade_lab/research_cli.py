@@ -174,6 +174,12 @@ def _write_artifacts(
             "test_days": config["test_days"],
             "step_days": config.get("step_days"),
             "final_holdout_days": config.get("final_holdout_days", 0),
+            "minimum_validation_trades": config.get("minimum_validation_trades", 30),
+            "minimum_test_trades": config.get("minimum_test_trades", 30),
+            "confidence_level": config.get("confidence_level", 0.95),
+            "bootstrap_samples": config.get("bootstrap_samples", 2000),
+            "bootstrap_block_length": config.get("bootstrap_block_length", 5),
+            "cost_stress_multipliers": config.get("cost_stress_multipliers", [1.0, 1.5, 2.0]),
         },
     }
     payload = json.dumps(manifest, indent=2, sort_keys=True, default=str).encode("utf-8") + b"\n"
@@ -192,6 +198,8 @@ def run_from_config(
     allowed = {
         "train_days", "validation_days", "test_days", "step_days",
         "final_holdout_days", "risk", "variants", "symbols",
+        "minimum_validation_trades", "minimum_test_trades", "confidence_level",
+        "bootstrap_samples", "bootstrap_block_length", "cost_stress_multipliers",
     }
     required = {"train_days", "validation_days", "test_days", "risk", "variants", "symbols"}
     _keys(config, allowed, required, "configuration")
@@ -208,11 +216,14 @@ def run_from_config(
     for index, raw in enumerate(raw_variants):
         label = f"variants[{index}]"
         item = _object(raw, label)
-        _keys(item, {"name", "strategy"}, {"name", "strategy"}, label)
+        _keys(item, {"name", "strategy", "sensitivity_group"}, {"name", "strategy"}, label)
         if not isinstance(item["name"], str):
             raise ValueError(f"{label}.name must be a string")
         strategy = _strategy(item["strategy"], f"{label}.strategy")
-        variants.append(ResearchVariant(item["name"], strategy))
+        sensitivity_group = item.get("sensitivity_group", "default")
+        if not isinstance(sensitivity_group, str) or not sensitivity_group.strip():
+            raise ValueError(f"{label}.sensitivity_group must be a non-empty string")
+        variants.append(ResearchVariant(item["name"], strategy, sensitivity_group))
 
     raw_symbols = _object(config["symbols"], "symbols")
     if not raw_symbols:
@@ -310,6 +321,12 @@ def run_from_config(
         test_days=config["test_days"], step_days=config.get("step_days"),
         value_to_account_rates=rates, risk=risk, data_sources=data_sources,
         final_holdout_days=config.get("final_holdout_days", 0),
+        minimum_validation_trades=config.get("minimum_validation_trades", 30),
+        minimum_test_trades=config.get("minimum_test_trades", 30),
+        confidence_level=config.get("confidence_level", 0.95),
+        bootstrap_samples=config.get("bootstrap_samples", 2000),
+        bootstrap_block_length=config.get("bootstrap_block_length", 5),
+        cost_stress_multipliers=tuple(config.get("cost_stress_multipliers", [1.0, 1.5, 2.0])),
     )
     destination = Path(output_path).expanduser().resolve()
     if destination in input_paths:
