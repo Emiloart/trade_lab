@@ -169,9 +169,11 @@ dispersion, cost-stress metrics, and explicit `ACCEPT`/`REJECT` decisions
 with reason codes.
 
 The selected configuration is ranked by its Bonferroni-adjusted validation
-expectancy lower bound. Acceptance additionally requires minimum validation
-and evaluation trade counts, a positive evaluation-period expectancy lower
-bound, and a positive lower bound under the maximum cost-stress multiplier.
+expectancy lower bound. Acceptance requires the minimum validation count, a
+positive adjusted validation lower bound, the minimum evaluation count, a
+positive evaluation-period lower bound, and a positive lower bound under the
+maximum cost-stress multiplier. Rejection reasons distinguish validation,
+test, and holdout failures.
 A reported `ACCEPT` is a protocol outcome, not a claim of future profitability.
 See [the statistical robustness protocol](research.md#statistical-robustness-protocol)
 for interpretation and restrictions.
