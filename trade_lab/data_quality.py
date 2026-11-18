@@ -9,6 +9,7 @@ import math
 from dataclasses import asdict, dataclass
 from typing import Literal
 
+import numpy as np
 import pandas as pd
 
 from .data import OHLCV
@@ -50,8 +51,7 @@ def validate_research_bars(
         ))
 
     numeric = bars[OHLCV].apply(pd.to_numeric, errors="coerce")
-    invalid = ~numeric.applymap(lambda value: math.isfinite(float(value))).all(axis=1)
-    if invalid.any():
+    invalid = ~pd.Series(\n        np.isfinite(numeric.to_numpy(dtype=float)).all(axis=1), index=bars.index\n    )\n    if invalid.any():
         findings.append(DataFinding(
             "non_finite_values", "error", "OHLCV contains missing or non-finite values",
             int(invalid.sum()),
