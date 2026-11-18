@@ -6,7 +6,10 @@ import pytest
 from trade_lab.notify import NotifyError, send_telegram
 
 
-@pytest.mark.parametrize("code, uncertain", [(400, False), (429, False), (500, True), (503, True), (408, True)])
+@pytest.mark.parametrize(
+    "code, uncertain",
+    [(400, False), (429, False), (500, True), (503, True), (408, True)],
+)
 def test_http_delivery_classification(monkeypatch, code, uncertain):
     def boom(request, timeout=None):
         raise urllib.error.HTTPError(request.full_url, code, "response", {}, None)
