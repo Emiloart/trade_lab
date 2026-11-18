@@ -12,8 +12,8 @@ The automated pytest suite is organized around the package boundaries:
 | Strategy | Directional conditions, tolerance boundary, stop/target levels, session gating |
 | Sessions | New York timezone, daylight-saving behavior, closed-bar and freshness rules |
 | Sizing | Risk budget, lot-step rounding, minimum and maximum lot behavior |
-| State and notifications | JSON persistence, daily closure, P&L accumulation, corruption handling, Telegram error handling |
-| Live orchestration | One-alert rule, dry-run behavior, stale signals/data, conversion failure, retry behavior |
+| State and notifications | JSON persistence, backup recovery, pending-delivery lifecycle, daily closure, P&L accumulation, corruption handling, Telegram outcome classification |
+| Live orchestration | One-alert rule, dry-run behavior, stale signals/data, conversion failure, checkpointed delivery, retry and quarantine behavior |
 
 Tests use synthetic bars and fakes. They validate deterministic code behavior; they do not validate Yahoo Finance data quality, Telegram service availability, broker pricing, order execution, or profitability.
 
@@ -27,7 +27,7 @@ python -m pytest -q
 ruff check trade_lab tests
 ```
 
-The CI workflow at `.github/workflows/ci.yml` runs pytest, Ruff, and `scripts/verify_docs.py` on pushes to main and refactor branches, pull requests, and manual dispatches. The documentation verifier checks local Markdown links, executable Python module/script paths and Ruff targets in fenced commands, CLI options, environment-variable references, the package module inventory, and workflow file references.
+The CI workflow at `.github/workflows/ci.yml` runs pytest, Ruff, and `scripts/verify_docs.py` on pushes to main and refactor branches, pull requests, and manual dispatches. The documentation verifier checks local Markdown links, executable Python module/script paths and Ruff targets in fenced commands and workflow run steps, CLI options, environment-variable references, the package module inventory, and workflow file references.
 
 ## Required checks for state and workflow changes
 
