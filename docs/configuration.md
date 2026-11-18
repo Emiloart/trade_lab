@@ -26,7 +26,7 @@ python -m pip install -e ".[dev]"
 | `LOT_STEP` | `0.01` | Lot increment |
 | `BOT_TOKEN` | — | Telegram bot token |
 | `CHAT_ID` | — | Telegram destination chat ID |
-| `STATE_FILE` | `.state/state.json` | JSON state-file path |
+| `STATE_FILE` | `.state/state.json` | JSON state-file path |\n| `TRADE_LAB_RUN_ID` | workflow-generated | Identifies the current scheduled workflow attempt; do not set manually for scheduled delivery |
 
 All floating-point strategy and sizing parameters must be finite; NaN and positive/negative infinity are rejected both for direct construction and supported numeric environment overrides. The configuration also validates positive account size, risk percentages, stop/reward values, session order, integer ATR period, and lot constraints. Invalid values fail startup with a clear error. Session times, ATR period, tolerance, and maximum lot currently use code defaults unless the Python configuration is constructed directly.
 
@@ -57,9 +57,9 @@ python -m trade_lab.live [--dry-run] [--state-file PATH] [--now ISO_TIMESTAMP]
 python -m trade_lab.live --record-pnl AMOUNT
 ```
 
-- `--dry-run`: evaluate and print an alert without Telegram delivery or state updates.
+- `--dry-run`: evaluate and print an alert without Telegram delivery or state updates.\n- `--prepare-alert`: internal scheduled-workflow mode; persist a pending alert but do not send it. The workflow checkpoints this state before delivery.\n- `--deliver-pending`: internal scheduled-workflow mode; send only the pending alert created by the current `TRADE_LAB_RUN_ID`.
 - `--state-file`: override the state path.
 - `--now`: evaluate at a supplied timestamp; a timezone-naive value is interpreted as UTC.
-- `--record-pnl`: add a realized P&L amount to today's state and exit.
+- `--record-pnl`: add a realized P&L amount to today's state and exit.\n\nThe scheduled workflow supplies `TRADE_LAB_RUN_ID`. It is used to prevent a later workflow attempt from sending a pending alert created by an interrupted earlier attempt.
 
 Use `--now` with an explicit offset (for example `2026-11-18T16:17:00Z`) for reproducible manual checks. Do not use a dry run as evidence that live delivery or persistence works.
