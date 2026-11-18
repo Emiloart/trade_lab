@@ -8,6 +8,7 @@ A Python market-monitoring and Telegram alerting system for a VWAP pullback stra
 - Shared VWAP, true-range, ATR, and first-signal logic for live monitoring and historical backtests.
 - Configurable spread, slippage, and commission simulation with risk-adjusted sizing.
 - Trade ledger with gross/net P&L, execution costs, risk budget, and R-multiple metrics.
+- Chronological multi-instrument research with per-symbol economics, costs, provenance, and holdout evaluation.
 - Telegram alerting with validated, checkpointed state persistence.
 - Pytest, Ruff, and documentation verification in GitHub Actions.
 
@@ -19,7 +20,7 @@ Execution modes are explicit: disabled, paper, demo, and live. Broker submission
 
 ## Important limitations
 
-- Zero-cost backtests remain the default for backwards compatibility and are not realistic performance estimates.
+- Zero-cost backtests remain the default in the legacy Python API for backwards compatibility; the research CLI requires explicit cost assumptions.
 - QQQ/NQ reference conversion is not a validated Exness US100 execution price.
 - Historical input snapshots are not versioned; Yahoo Finance coverage and quality vary.
 - No broker adapter or live order execution is implemented yet.
@@ -29,52 +30,56 @@ Execution modes are explicit: disabled, paper, demo, and live. Broker submission
 
 Requires Python 3.10 or newer.
 
-```bash
+~~~bash
 git clone https://github.com/Emiloart/trade_lab.git
 cd trade_lab
 python -m venv .venv
-```
+~~~
 
 Activate the environment:
 
-```bash
+~~~bash
 # macOS / Linux
 source .venv/bin/activate
 
 # Windows PowerShell
-.venv\\Scripts\\Activate.ps1
-```
+.venv\Scripts\Activate.ps1
+~~~
 
 Install:
 
-```bash
+~~~bash
 python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
-```
+~~~
 
 ## Run the monitor
 
-```bash
+~~~bash
 python -m trade_lab.live --dry-run
-```
+~~~
 
-## Backtesting
+## Run multi-instrument research
 
-```bash
-python strategies/data_downloader.py
-python backtests/vwap_backtest.py
-python backtests/recent_backtest.py
-```
+Prepare a JSON configuration with verified instrument specifications, explicit
+cost assumptions, account-currency conversion rates, and CSV data provenance.
+Then run:
 
-See [Backtesting](docs/backtesting.md) for execution-cost assumptions and interpretation, and [Research](docs/research.md) for reclaim-quality and walk-forward evaluation.
+~~~bash
+python -m trade_lab.research_cli --config research.json --output reports/walk-forward.csv
+~~~
+
+See [Research methodology](docs/research.md) and the
+[research CLI configuration guide](docs/research_cli.md) for details. See
+[Backtesting](docs/backtesting.md) for execution-cost assumptions.
 
 ## Tests and lint
 
-```bash
+~~~bash
 python -m pytest -q
 ruff check .
 python scripts/verify_docs.py
-```
+~~~
 
 ## Attribution
 
