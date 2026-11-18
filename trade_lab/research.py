@@ -153,8 +153,6 @@ def run_walk_forward_research(
             raise ValueError(f"{label} must be an integer >= {200 if label == 'bootstrap_samples' else 1}")
     if not 0 < confidence_level < 1:
         raise ValueError("confidence_level must be between 0 and 1")
-    # Validate once before any expensive backtests.
-    cost_scenarios(next(iter(costs.values())), cost_stress_multipliers)
 
     rates = value_to_account_rates or {}
     sources = data_sources
@@ -203,6 +201,7 @@ def run_walk_forward_research(
     for symbol, bars in datasets.items():
         instrument = instruments[symbol]
         execution_costs = costs[symbol]
+        cost_scenarios(execution_costs, cost_stress_multipliers)
         trades_by_variant: dict[str, pd.DataFrame] = {}
         stress_trades_by_variant: dict[str, dict[float, pd.DataFrame]] = {}
         metadata_by_variant: dict[str, dict[str, object]] = {}
