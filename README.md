@@ -81,6 +81,3 @@ ruff check .
 python scripts/verify_docs.py
 ~~~
 
-## Attribution
-
-Maintained by **Emiloart**.
