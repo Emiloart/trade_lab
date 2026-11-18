@@ -94,7 +94,10 @@ def verify_workflow_contract() -> None:
     ]
     positions = [trading.find(marker) for marker in ordered_markers]
     if any(position < 0 for position in positions) or positions != sorted(positions):
-        fail("trading workflow no longer follows restore → guard → prepare → checkpoint → deliver → final-save order")
+        fail(
+            "trading workflow no longer follows "
+            "restore → guard → prepare → checkpoint → deliver → final-save order"
+        )
     for required in (
         ".state/state.json",
         ".state/state.json.bak",
@@ -110,7 +113,10 @@ def verify_workflow_contract() -> None:
 
     ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     required_checks = (
-        "ruff check trade_lab backtests/_common.py backtests/vwap_backtest.py backtests/recent_backtest.py tests",
+        (
+            "ruff check trade_lab backtests/_common.py "
+            "backtests/vwap_backtest.py backtests/recent_backtest.py tests"
+        ),
         "pytest -q",
         "python scripts/verify_docs.py",
     )
@@ -150,11 +156,18 @@ def main() -> int:
     )
     runtime_vars = set(re.findall(r'os\.environ\.get\(["\']([A-Z][A-Z0-9_]*)["\']', runtime_source))
     documented_vars = set(
-        re.findall(r"^\| `([A-Z][A-Z0-9_]*)` \|", texts[ROOT / "docs" / "configuration.md"], re.MULTILINE)
+        re.findall(
+            r"^\| `([A-Z][A-Z0-9_]*)` \|",
+            texts[ROOT / "docs" / "configuration.md"],
+            re.MULTILINE,
+        )
     )
     required_vars = configured | runtime_vars
     if required_vars - documented_vars:
-        fail(f"undocumented application environment variables: {sorted(required_vars - documented_vars)}")
+        fail(
+            "undocumented application environment variables: "
+            f"{sorted(required_vars - documented_vars)}"
+        )
 
     config_tree = ast.parse(config_source)
     strategy_class = next(
@@ -211,9 +224,14 @@ def main() -> int:
         workflow_text = workflow.read_text(encoding="utf-8")
         if workflow.name not in combined:
             fail(f"workflow is not referenced by documentation: {workflow.name}")
-        workflow_vars = set(re.findall(r"^\s{10}([A-Z][A-Z0-9_]*)\s*:", workflow_text, re.MULTILINE))
-        workflow_secrets = set(re.findall(r"\$\{\{\s*secrets\.([A-Z][A-Z0-9_]*)\s*\}\}", workflow_text))
-        missing = (workflow_vars | workflow_secrets) - set(re.findall(r"\b[A-Z][A-Z0-9_]*\b", combined))
+        workflow_vars = set(
+            re.findall(r"^\s{10}([A-Z][A-Z0-9_]*)\s*:", workflow_text, re.MULTILINE)
+        )
+        workflow_secrets = set(
+            re.findall(r"\$\{\{\s*secrets\.([A-Z][A-Z0-9_]*)\s*\}\}", workflow_text)
+        )
+        documented_names = set(re.findall(r"\b[A-Z][A-Z0-9_]*\b", combined))
+        missing = (workflow_vars | workflow_secrets) - documented_names
         if missing:
             fail(f"undocumented workflow variables in {workflow.name}: {sorted(missing)}")
         workflow_source = workflow.relative_to(ROOT).as_posix()
