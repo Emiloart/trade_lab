@@ -85,7 +85,7 @@ def verify_workflow_contract() -> None:
     trading_path = ROOT / ".github" / "workflows" / "trading_bot.yml"
     trading = trading_path.read_text(encoding="utf-8")
     ordered_markers = [
-        "id: restore-state",
+        "id: restore_state",
         "python -m trade_lab.cache_guard",
         "python -m trade_lab.live --prepare-alert",
         "key: ${{ steps.state.outputs.key }}-checkpoint",
