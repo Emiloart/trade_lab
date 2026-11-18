@@ -118,8 +118,9 @@ Each successful run writes a sibling artifact directory by default. For
 The directory contains:
 
 - `research-config.json`: exact configuration bytes used for the run.
-- `datasets/<symbol>-<sha256>.csv`: exact source CSV bytes, stored under a
-  content-addressed filename.
+- `datasets/<symbol-key>-<sha256>.csv`: exact source CSV bytes, stored under a
+  content-addressed filename. The symbol key is a short hash so arbitrary symbol
+  strings cannot become filesystem path components.
 - `manifest.json`: manifest version, config SHA-256, source-file SHA-256,
   snapshot path, source label, optional provider/retrieval/interval/adjustment/
   symbol-mapping metadata, explicit UTC timestamp assumption, row count,
