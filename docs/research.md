@@ -66,8 +66,8 @@ report = run_walk_forward_research(
         "SYMBOL_B": BacktestCosts(spread_points=spread_b, slippage_points=slippage_b,
                                   commission_per_unit=commission_b),
     },
-    variants=variants, train_days=120, validation_days=20,
-    test_days=20, step_days=20, final_holdout_days=60,
+    variants=variants, train_days=120, validation_days=60,
+    test_days=60, step_days=60, final_holdout_days=60,
     data_sources={"SYMBOL_A": "vendor A, 5m, adjusted: no",
                   "SYMBOL_B": "vendor B, 5m, adjusted: no"},
 )
@@ -162,8 +162,10 @@ to candidate validation, selected test windows, and the optional final holdout.
 The CLI defaults to 30 closed trades in validation and 30 in test/holdout. These
 are protocol defaults, not universal guarantees of statistical power; choose
 larger minimums when the strategy's expected effect size or dependence structure
-requires them. A result below either minimum is reported as rejected rather than
-silently treated as evidence.
+requires them. The current strategy allows at most one executed trade per New
+York session, so validation/test windows must contain at least as many sessions
+as their configured minimum trade counts. A result below either minimum is
+reported as rejected rather than silently treated as evidence.
 
 Expectancy and win-rate intervals use a moving-block bootstrap over the ordered
 sequence of trade-bearing New York dates. The default block length is five
