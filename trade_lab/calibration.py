@@ -98,7 +98,8 @@ def _quantity_for_budget(
     )
     commission_cost_per_unit = 2.0 * commission_per_quantity_side
     total_risk_per_unit = stop_risk_per_unit + price_cost_per_unit + commission_cost_per_unit
-    raw_quantity = min(risk_budget / total_risk_per_unit, instrument.max_quantity)
+    affordable_quantity = risk_budget / total_risk_per_unit
+    raw_quantity = min(affordable_quantity, instrument.max_quantity)
     steps = math.floor(raw_quantity / instrument.quantity_step + 1e-9)
     quantity = round(steps * instrument.quantity_step, 10)
     if quantity < instrument.min_quantity - 1e-9:
@@ -114,7 +115,7 @@ def _quantity_for_budget(
         "risk_budget": risk_budget,
         "risk_budget_respected": total_risk <= risk_budget + 1e-7,
         "minimum_quantity_fundable": quantity >= instrument.min_quantity,
-        "maximum_quantity_capped": raw_quantity >= instrument.max_quantity,
+        "maximum_quantity_capped": affordable_quantity > instrument.max_quantity,
         "risk_per_quantity": round(total_risk_per_unit, 8),
     }
 
@@ -185,17 +186,15 @@ def build_calibration_report(config: dict[str, Any], config_bytes: bytes) -> dic
         "spread_points", "slippage_points", "commission_per_quantity_side"
     }
     _keys(costs, cost_keys, set(), "execution_costs")
-    normalized_costs = {
-        key: (
-            0.0 if value == 0 else _finite_positive(value, f"execution_costs.{key}")
-        )
-        for key, value in costs.items()
-    }
     if any(
-        isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+        or value < 0
         for value in costs.values()
     ):
         raise ValueError("execution costs must be finite non-negative numbers")
+    normalized_costs = {key: float(value) for key, value in costs.items()}
 
     budgets = config["risk_budgets"]
     distances = config["stop_distances"]
@@ -203,8 +202,14 @@ def build_calibration_report(config: dict[str, Any], config_bytes: bytes) -> dic
         raise ValueError("risk_budgets must be a non-empty array")
     if not isinstance(distances, list) or not distances:
         raise ValueError("stop_distances must be a non-empty array")
-    risk_budgets = [_finite_positive(value, f"risk_budgets[{i}]") for i, value in enumerate(budgets)]
-    stop_distances = [_finite_positive(value, f"stop_distances[{i}]") for i, value in enumerate(distances)]
+    risk_budgets = [
+        _finite_positive(value, f"risk_budgets[{i}]")
+        for i, value in enumerate(budgets)
+    ]
+    stop_distances = [
+        _finite_positive(value, f"stop_distances[{i}]")
+        for i, value in enumerate(distances)
+    ]
     if len(set(risk_budgets)) != len(risk_budgets):
         raise ValueError("risk_budgets must not contain duplicates")
     if len(set(stop_distances)) != len(stop_distances):
@@ -323,7 +328,10 @@ def main(argv: list[str] | None = None) -> int:
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Calibrate risk sizing from an operator-supplied broker instrument specification."
+        description=(
+            "Calibrate risk sizing from an operator-supplied broker "
+            "instrument specification."
+        )
     )
     parser.add_argument("--config", required=True, help="Broker calibration JSON.")
     parser.add_argument("--output", required=True, help="Destination JSON report.")
